@@ -49,7 +49,9 @@ class IssuerStack(Stack):
                 "payment-cryptography-data:VerifyCardValidationData",
                 "payment-cryptography-data:VerifyPinData",
                 "payment-cryptography-data:VerifyAuthRequestCryptogram",
+                "payment-cryptography-data:TranslatePinData",
                 "payment-cryptography-data:GenerateMac",
+                "payment-cryptography-data:VerifyMac",
             ],
             resources=["*"],
         ))

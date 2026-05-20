@@ -98,7 +98,7 @@ def scenario_contactless_replay_attack():
 
 
 def scenario_atm_withdrawal():
-    """场景3: ATM 取款 - PIN 验证"""
+    """场景: ATM 取款 - PIN 验证"""
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "atm",
@@ -108,6 +108,37 @@ def scenario_atm_withdrawal():
         "merchant": "HSBC ATM Causeway Bay",
         "encrypted_pin_block": "4AA2132737F32585",
         "pin_verification_value": "1064",
+    }
+
+
+def scenario_pin_translate():
+    """场景: PIN 翻译完整链路（MAC验证 → PIN翻译 → PIN验证）"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "pin_translate",
+        "pan": "5425230000004415",
+        "amount": 2000,
+        "currency": "HKD",
+        "merchant": "POS Terminal - Park N Shop",
+        "encrypted_pin_block": "3E15A2191F11D647",  # 收单方密钥加密
+        "pin_verification_value": "7914",
+        "outgoing_format": "ISO_FORMAT_0",
+        "message_data": "0200542523000044150000000050001234567890",
+        "mac": "C8288190",
+    }
+
+
+def scenario_mac_tampered():
+    """场景: MAC 验证失败 - 消息被篡改"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "mac_verify",
+        "pan": "5425230000004415",
+        "amount": 9999,
+        "currency": "HKD",
+        "merchant": "Tampered Message",
+        "message_data": "0200542523000044150000000099991234567890",  # 金额被篡改
+        "mac": "C8288190",  # 原始 MAC
     }
 
 
@@ -125,6 +156,8 @@ def main():
         ("Contactless - dCVV2 (Octopus Top-up)", scenario_contactless_dcvv2),
         ("Contactless - dCVV2 Replay Attack", scenario_contactless_replay_attack),
         ("ATM Cash Withdrawal (HSBC ATM)", scenario_atm_withdrawal),
+        ("PIN Translate Pipeline (MAC→Translate→Verify)", scenario_pin_translate),
+        ("MAC Verification - Tampered Message", scenario_mac_tampered),
     ]
 
     for name, scenario_fn in scenarios:

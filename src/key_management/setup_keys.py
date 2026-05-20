@@ -85,6 +85,19 @@ def setup_issuer_keys():
         modes_of_use={"DeriveKey": True},
     )
 
+    # 6. Acquirer PEK - 收单方 PIN 加密密钥（模拟）
+    keys["acquirer_pek"] = create_key(
+        alias="poc-acquirer-pek",
+        key_usage="TR31_P0_PIN_ENCRYPTION_KEY",
+        modes_of_use={"Encrypt": True, "Decrypt": True, "Wrap": True, "Unwrap": True},
+    )
+
+    # 7. MAC Key - 交易消息认证密钥
+    keys["mac_key"] = create_key(
+        alias="poc-mac-key",
+        key_usage="TR31_M1_ISO_9797_1_MAC_KEY",
+    )
+
     # 保存密钥 ARN 映射
     output_path = ".state/key_arns.json"
     with open(output_path, "w") as f:

@@ -107,6 +107,56 @@ def verify_pin(pan, encrypted_pin_block, pin_verification_value):
         return {"verified": False, "method": "PIN", "reason": "PIN incorrect"}
 
 
+def translate_pin(pan, encrypted_pin_block, incoming_format="ISO_FORMAT_0", outgoing_format="ISO_FORMAT_0"):
+    """PIN 翻译：收单方密钥 → 发卡方密钥（可选格式转换）"""
+    acquirer_pek_arn = get_key_arn("poc-acquirer-pek")
+    issuer_pek_arn = get_key_arn("poc-issuer-pek")
+    try:
+        resp = data_client.translate_pin_data(
+            IncomingKeyIdentifier=acquirer_pek_arn,
+            OutgoingKeyIdentifier=issuer_pek_arn,
+            IncomingTranslationAttributes={"IsoFormat0": {"PrimaryAccountNumber": pan}},
+            OutgoingTranslationAttributes={
+                outgoing_format.replace("ISO_FORMAT_", "IsoFormat"): {"PrimaryAccountNumber": pan}
+            },
+            EncryptedPinBlock=encrypted_pin_block,
+        )
+        return {
+            "success": True,
+            "method": "PIN_TRANSLATE",
+            "translated_pin_block": resp["PinBlock"],
+            "outgoing_format": outgoing_format,
+        }
+    except Exception as e:
+        return {"success": False, "method": "PIN_TRANSLATE", "reason": str(e)}
+
+
+def generate_mac(message_data):
+    """生成交易消息 MAC"""
+    mac_key_arn = get_key_arn("poc-mac-key")
+    resp = data_client.generate_mac(
+        KeyIdentifier=mac_key_arn,
+        MessageData=message_data,
+        GenerationAttributes={"Algorithm": "ISO9797_ALGORITHM1"},
+    )
+    return {"mac": resp["Mac"], "method": "MAC_GENERATE"}
+
+
+def verify_mac(message_data, mac):
+    """验证交易消息 MAC"""
+    mac_key_arn = get_key_arn("poc-mac-key")
+    try:
+        data_client.verify_mac(
+            KeyIdentifier=mac_key_arn,
+            MessageData=message_data,
+            Mac=mac,
+            VerificationAttributes={"Algorithm": "ISO9797_ALGORITHM1"},
+        )
+        return {"verified": True, "method": "MAC"}
+    except data_client.exceptions.VerificationFailedException:
+        return {"verified": False, "method": "MAC", "reason": "MAC verification failed - message tampered"}
+
+
 def authorize_transaction(event):
     """
     交易授权主入口
@@ -145,6 +195,33 @@ def authorize_transaction(event):
             encrypted_pin_block=event["encrypted_pin_block"],
             pin_verification_value=event["pin_verification_value"],
         )
+    elif tx_type == "pin_translate":
+        # 完整链路：MAC 验证 → PIN 翻译 → PIN 验证
+        results = {}
+        # Step 1: 验证消息 MAC
+        if event.get("mac"):
+            mac_result = verify_mac(event.get("message_data", ""), event["mac"])
+            results["mac_verification"] = mac_result
+            if not mac_result["verified"]:
+                return build_response("96", "MAC verification failed", event, mac_result)
+        # Step 2: PIN 翻译（收单方 → 发卡方）
+        translate_result = translate_pin(
+            pan=pan,
+            encrypted_pin_block=event["encrypted_pin_block"],
+            outgoing_format=event.get("outgoing_format", "ISO_FORMAT_0"),
+        )
+        results["pin_translate"] = translate_result
+        if not translate_result["success"]:
+            return build_response("96", "PIN translation failed", event, translate_result)
+        # Step 3: 用翻译后的 PIN Block 验证
+        crypto_result = verify_pin(
+            pan=pan,
+            encrypted_pin_block=translate_result["translated_pin_block"],
+            pin_verification_value=event["pin_verification_value"],
+        )
+        crypto_result["pipeline"] = results
+    elif tx_type == "mac_verify":
+        crypto_result = verify_mac(event.get("message_data", ""), event.get("mac", ""))
     else:
         return build_response("96", "System malfunction", event)
 

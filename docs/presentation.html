@@ -126,117 +126,129 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
 
 <section>
   <h2>🎬 演示场景</h2>
+  <p style="color:#666;margin-bottom:1.5rem;">按真实业务流程组织，展示一笔交易从发起到授权的完整密码学处理链路。</p>
+
+  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">业务流程一：电商无卡交易 (Card Not Present)</h3>
+  <p style="margin-bottom:1rem;color:#555;">持卡人在线购物，商户将卡号+有效期+CVV2 发送到 Processor 验证。</p>
 
   <div class="scenario success">
-    <h3>场景 1：电商交易 — CVV2 验证通过</h3>
-    <p>持卡人在 HKTVmall 网购 HKD 299，输入正确的 CVV2。</p>
-    <pre><span class="comment"># 正确 CVV2 → 批准</span>
-curl -s -X POST "$API_URL/authorize" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $API_KEY" \
-  -d '{
-    "transaction_type": "ecommerce",
-    "pan": "5425230000004415",
-    "amount": 299, "currency": "HKD",
-    "merchant": "HKTVmall",
-    "expiry_date": "0127", "cvv2": "683"
-  }'</pre>
+    <h3>Step 1：CVV2 验证通过 → 授权</h3>
+    <p>持卡人在 HKTVmall 网购 HKD 299，输入正确 CVV2。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "ecommerce",
+  "pan": "5425230000004415",
+  "amount": 299, "currency": "HKD",
+  "merchant": "HKTVmall",
+  "expiry_date": "0127", "cvv2": "683"
+}</pre>
     <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
-    <p><strong>要点：</strong>CVV2 由 AWS Payment Cryptography 使用 CVK 密钥实时验证，延迟 &lt; 50ms。</p>
     <button class="btn-run" id="btn-cvv-ok" onclick="runScenario('cvv-ok')">▶ 执行请求</button>
     <div class="output" id="output-cvv-ok"></div>
   </div>
 
   <div class="scenario failure">
-    <h3>场景 2：欺诈拦截 — CVV2 错误</h3>
-    <p>盗卡者猜测 CVV2 进行交易，被即时拦截。</p>
-    <pre><span class="comment"># 错误 CVV2 → 拒绝</span>
-curl -s -X POST "$API_URL/authorize" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $API_KEY" \
-  -d '{
-    "transaction_type": "ecommerce",
-    "pan": "5425230000004415",
-    "amount": 1200, "currency": "HKD",
-    "merchant": "Suspicious Store",
-    "expiry_date": "0127", "cvv2": "999"
-  }'</pre>
+    <h3>Step 2：CVV2 错误 → 拒绝（欺诈拦截）</h3>
+    <p>盗卡者猜测 CVV2 发起交易，Processor 即时拦截。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "ecommerce",
+  "pan": "5425230000004415",
+  "amount": 1200, "currency": "HKD",
+  "merchant": "Suspicious Store",
+  "expiry_date": "0127", "cvv2": "999"  ← 错误
+}</pre>
     <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour</span></p>
-    <p><strong>要点：</strong>错误 CVV2 被即时识别并拒绝，保护持卡人资金安全。</p>
     <button class="btn-run" id="btn-cvv-bad" onclick="runScenario('cvv-bad')">▶ 执行请求</button>
     <div class="output" id="output-cvv-bad"></div>
   </div>
 
+  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">业务流程二：非接触式支付 (Contactless / Tap-to-Pay)</h3>
+  <p style="margin-bottom:1rem;color:#555;">芯片卡每笔交易动态生成 dCVV2，基于 ATC（交易计数器）派生，防止重放攻击。</p>
+
   <div class="scenario success">
-    <h3>场景 3：非接触式支付 — dCVV2 动态验证</h3>
-    <p>持卡人用 Tap-to-Pay 在港铁充值 HKD 88，芯片动态生成 dCVV2。</p>
-    <pre><span class="comment"># dCVV2 + 正确 ATC → 批准</span>
-curl -s -X POST "$API_URL/authorize" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $API_KEY" \
-  -d '{
-    "transaction_type": "contactless",
-    "pan": "5425230000004415",
-    "amount": 88, "currency": "HKD",
-    "merchant": "Octopus Top-up MTR",
-    "expiry_date": "0127", "pan_sequence": "00",
-    "atc": "0001", "service_code": "101", "dcvv2": "166"
-  }'</pre>
+    <h3>Step 1：dCVV2 动态验证通过</h3>
+    <p>持卡人 Tap-to-Pay 在港铁充值 HKD 88，芯片生成当次交易的 dCVV2。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "contactless",
+  "pan": "5425230000004415",
+  "amount": 88, "currency": "HKD",
+  "merchant": "Octopus Top-up MTR",
+  "expiry_date": "0127", "pan_sequence": "00",
+  "atc": "0001",  ← 当前交易计数器
+  "service_code": "101", "dcvv2": "166"
+}</pre>
     <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
-    <p><strong>要点：</strong>dCVV2 基于 ATC（应用交易计数器）动态派生，每笔交易值不同，比静态 CVV2 更安全。</p>
     <button class="btn-run" id="btn-dcvv2-ok" onclick="runScenario('dcvv2-ok')">▶ 执行请求</button>
     <div class="output" id="output-dcvv2-ok"></div>
   </div>
 
   <div class="scenario failure">
-    <h3>场景 4：重放攻击拦截 — dCVV2 + 错误 ATC</h3>
-    <p>攻击者截获历史交易数据尝试重放，但 ATC 不匹配被拦截。</p>
-    <pre><span class="comment"># dCVV2 + 错误 ATC → 拦截</span>
-curl -s -X POST "$API_URL/authorize" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $API_KEY" \
-  -d '{
-    "transaction_type": "contactless",
-    "pan": "5425230000004415",
-    "amount": 88, "currency": "HKD",
-    "merchant": "Replayed Transaction",
-    "expiry_date": "0127", "pan_sequence": "00",
-    "atc": "0009", "service_code": "101", "dcvv2": "166"
-  }'</pre>
-    <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour</span></p>
-    <p><strong>要点：</strong>即使 dCVV2 值正确，ATC 不匹配即判定为重放攻击，交易被拒。</p>
+    <h3>Step 2：重放攻击拦截 — ATC 不匹配</h3>
+    <p>攻击者截获历史交易报文重放，但 ATC 已递增，验证失败。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "contactless",
+  ...
+  "atc": "0009",  ← 篡改的 ATC（实际应为 0002）
+  "dcvv2": "166"  ← 旧的 dCVV2
+}</pre>
+    <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour (replay attack)</span></p>
     <button class="btn-run" id="btn-dcvv2-replay" onclick="runScenario('dcvv2-replay')">▶ 执行请求</button>
     <div class="output" id="output-dcvv2-replay"></div>
   </div>
 
+  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">业务流程三：POS 刷卡 — 完整 PIN 处理链路</h3>
+  <p style="margin-bottom:1rem;color:#555;">一笔 POS 交易从收单方到发卡方的完整密码学处理：MAC 验证 → PIN 翻译 → PIN 验证。这是 Card Processor 最核心的操作。</p>
+
   <div class="scenario success">
-    <h3>场景 5：ATM 取款 — PIN 验证</h3>
-    <p>持卡人在铜锣湾 HSBC ATM 取款 HKD 5,000，输入正确 PIN。</p>
-    <pre><span class="comment"># PIN 验证 → 批准</span>
-curl -s -X POST "$API_URL/authorize" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: $API_KEY" \
-  -d '{
-    "transaction_type": "atm",
-    "pan": "5425230000004415",
-    "amount": 5000, "currency": "HKD",
-    "merchant": "HSBC ATM Causeway Bay",
-    "encrypted_pin_block": "4AA2132737F32585",
-    "pin_verification_value": "1064"
-  }'</pre>
-    <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
-    <p><strong>要点：</strong>PIN 明文从不出现在应用层，全程在 HSM 内处理，符合 PCI PIN 合规。</p>
-    <button class="btn-run" id="btn-pin-ok" onclick="runScenario('pin-ok')">▶ 执行请求</button>
-    <div class="output" id="output-pin-ok"></div>
+    <h3>完整链路：MAC 验证 → PIN 翻译 → PIN 验证</h3>
+    <p>持卡人在百佳超市 POS 刷卡消费 HKD 2,000，输入 PIN。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "pin_translate",
+  "pan": "5425230000004415",
+  "amount": 2000, "currency": "HKD",
+  "merchant": "POS Terminal - Park N Shop",
+  "encrypted_pin_block": "3E15A2191F11D647",  ← 收单方密钥加密
+  "pin_verification_value": "7914",
+  "message_data": "0200542523000044150000000050001234567890",
+  "mac": "C8288190"  ← 报文 MAC
+}
+
+处理流程：
+① MAC 验证 → 确认报文未被篡改
+② PIN Translate → 收单方密钥转换为发卡方密钥
+③ PIN Verify → 用发卡方密钥验证 PIN 正确性</pre>
+    <p>预期结果：<span class="result result-approved">✅ 00 - Approved (3步全部通过)</span></p>
+    <button class="btn-run" id="btn-pin-translate" onclick="runScenario('pin-translate')">▶ 执行请求</button>
+    <div class="output" id="output-pin-translate"></div>
   </div>
 
   <div class="scenario failure">
-    <h3>场景 6：未授权请求 — 安全防护</h3>
-    <p>不带 API Key 的请求被 API Gateway 直接拒绝。</p>
-    <pre><span class="comment"># 无 API Key → Forbidden</span>
-curl -s -X POST "$API_URL/authorize" \
-  -H "Content-Type: application/json" \
-  -d '{"transaction_type":"ecommerce","pan":"5425230000004415",...}'</pre>
+    <h3>MAC 篡改检测 — 报文被中间人修改</h3>
+    <p>攻击者篡改了交易金额（$50→$9999），MAC 校验失败，交易在第一步即被拦截。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "mac_verify",
+  "pan": "5425230000004415",
+  "amount": 9999,
+  "message_data": "0200542523000044150000000099991234567890",  ← 金额被篡改
+  "mac": "C8288190"  ← 原始 MAC（与篡改后的消息不匹配）
+}</pre>
+    <p>预期结果：<span class="result result-declined">❌ 96 - MAC verification failed</span></p>
+    <button class="btn-run" id="btn-mac-tamper" onclick="runScenario('mac-tamper')">▶ 执行请求</button>
+    <div class="output" id="output-mac-tamper"></div>
+  </div>
+
+  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">安全防护：API 认证</h3>
+
+  <div class="scenario failure">
+    <h3>无 API Key — 未授权请求被拒</h3>
+    <p>模拟未授权的调用方，不携带 API Key 直接请求。</p>
+    <pre><span class="comment"># 无 x-api-key header → 403</span>
+POST /authorize  (无认证)</pre>
     <p>预期结果：<span class="result result-forbidden">🚫 403 - Forbidden</span></p>
     <button class="btn-run" id="btn-no-key" onclick="runScenario('no-key')">▶ 执行请求</button>
     <div class="output" id="output-no-key"></div>
@@ -335,16 +347,6 @@ const SCENARIOS = {
     expiry_date: '0127',
     cvv2: '999'
   },
-  'pin-ok': {
-    transaction_id: 'demo-' + Date.now(),
-    transaction_type: 'atm',
-    pan: '5425230000004415',
-    amount: 5000,
-    currency: 'HKD',
-    merchant: 'HSBC ATM Causeway Bay',
-    encrypted_pin_block: '4AA2132737F32585',
-    pin_verification_value: '1064'
-  },
   'dcvv2-ok': {
     transaction_id: 'demo-' + Date.now(),
     transaction_type: 'contactless',
@@ -370,6 +372,29 @@ const SCENARIOS = {
     atc: '0009',
     service_code: '101',
     dcvv2: '166'
+  },
+  'pin-translate': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'pin_translate',
+    pan: '5425230000004415',
+    amount: 2000,
+    currency: 'HKD',
+    merchant: 'POS Terminal - Park N Shop',
+    encrypted_pin_block: '3E15A2191F11D647',
+    pin_verification_value: '7914',
+    outgoing_format: 'ISO_FORMAT_0',
+    message_data: '0200542523000044150000000050001234567890',
+    mac: 'C8288190'
+  },
+  'mac-tamper': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'mac_verify',
+    pan: '5425230000004415',
+    amount: 9999,
+    currency: 'HKD',
+    merchant: 'Tampered Message',
+    message_data: '0200542523000044150000000099991234567890',
+    mac: 'C8288190'
   },
   'no-key': {
     transaction_type: 'ecommerce',
