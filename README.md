@@ -2,20 +2,63 @@
 
 ## 场景
 
-模拟香港发卡方（Issuer）通过 Mastercard Cloud Edge 接入支付网络，使用 AWS Payment Cryptography 替代传统物理 HSM 完成支付交易授权。
+模拟发卡方（Issuer）通过 Mastercard Cloud Edge 接入支付网络，使用 AWS Payment Cryptography 替代传统物理 HSM 完成支付交易授权。
 
-## 技术栈
+---
 
-- Python 3.13 + uv
-- AWS Payment Cryptography（支付 HSM）
-- AWS Lambda + API Gateway（Issuer Host）
-- AWS CDK（IaC）
-- Region: ap-southeast-1
+自研 Card Processor 需要解决两个最重的基础设施问题：**加密机**和**卡组织网络接入**。本 POC 验证了在 AWS 上用云原生方案替代传统硬件的技术可行性。
+
+| 传统方案 | 本 POC 验证的云方案 |
+|---------|-------------------|
+| 采购物理 HSM（Thales payShield 等），$50K-100K + 数月交付 | AWS Payment Cryptography，API 调用即用，按量计费 |
+| 物理机房 + 专线接入卡组织 | Mastercard Cloud Edge + AWS PrivateLink |
+| HSM 固件维护、密钥仪式需人工 | 全托管，PCI PIN/P2PE 已认证 |
+| 扩容需采购硬件，周期 3-6 个月 | 自动弹性伸缩 |
+
+## 验证的核心能力
+
+本 POC 通过 **真实调用** AWS Payment Cryptography API，演示了 Card Processor 密码学操作：
+
+| 操作 | 说明 | 状态 |
+|------|------|------|
+| CVV/CVV2 生成与验证 | 卡片验证值 | ✅ 已验证 |
+| PIN 验证 | ATM/POS PIN 校验 | ✅ 已验证 |
+| ARQC/ARPC 验证 | EMV 芯片卡交易认证 | ✅ 已验证 |
+| 密钥创建与管理 | TR-31 Key Block 创建 | ✅ 已验证 |
+| PIN 翻译（PIN Translate） | 收单方 → 发卡方密钥转换 | 🔲 支持，未演示 |
+| PIN Block 重加密 | 不同格式/密钥间转换 | 🔲 支持，未演示 |
+| MAC 生成与验证 | 交易消息完整性认证 | 🔲 支持，未演示 |
+| 数据加密/解密 | 敏感字段加密（如 PAN） | 🔲 支持，未演示 |
+| 密钥交换（TR-31/TR-34） | 与卡组织/收单方密钥分发 | 🔲 支持，未演示 |
+| 卡片个人化密钥派生 | 发卡时为每张卡派生唯一密钥 | 🔲 支持，未演示 |
+| 3D Secure（CAVV） | 在线交易额外认证 | 🔲 支持，未演示 |
+
+## 生产化路径
+
+本 POC 使用 Serverless 架构（Lambda + API Gateway）快速验证。生产环境大规模交易处理建议演进为：
+
+```
+                POC 架构                          生产架构
+         (验证密码学可行性)                   (高性能低延迟)
+
+API Gateway → Lambda                NLB → ECS/EKS (常驻容器)
+      │                                    │
+      ▼                                    ▼
+Payment Cryptography              Payment Cryptography (不变)
+```
+
+生产架构调整点：
+- **计算层**：Lambda → ECS/EKS 常驻容器（消除冷启动，支持长连接）
+- **网络层**：API Gateway → NLB（四层负载，更低延迟）
+- **连接方式**：HTTPS → PrivateLink / Direct Connect（与卡组织持久连接）
+- **加密机层**：无需变更，Payment Cryptography API 调用方式完全相同
+
+**结论：加密机层的验证结果可直接复用到生产架构。**
 
 ## 快速开始
 
 ```bash
-# 一键部署（安装依赖 → CDK 部署 → 初始化密钥 → 生成测试数据 → 写入 .env）
+# 一键部署
 export AWS_PROFILE=<your-profile>  # 可选，默认使用 default profile
 ./deploy.sh
 
@@ -30,26 +73,23 @@ curl -s -X POST "$API_URL/authorize" \
   -d '{"transaction_type":"ecommerce","pan":"5425230000004415","amount":299,"currency":"HKD","expiry_date":"0127","cvv2":"683"}'
 ```
 
-## 演示场景
+## 交互式演示
 
-| # | 场景 | 密码学操作 | 预期结果 |
-|---|------|-----------|---------|
-| 1 | 电商购物（正确 CVV） | CVV2 验证 | ✅ Approved |
-| 2 | 欺诈尝试（错误 CVV） | CVV2 验证 | ❌ Declined |
-| 3 | ATM 取款（正确 PIN） | PIN 验证 | ✅ Approved |
-| 4 | EMV 芯片卡 POS | ARQC 验证 | ❌ Declined（模拟值） |
+部署完成后打开 [docs/presentation.html](docs/presentation.html)，在浏览器中直接点击按钮即可实时调用 API 查看结果。
 
-## 文档
+## 技术栈
 
-- [演示指南](docs/presentation.html) — 交互式演示，支持浏览器内实时调用 API
+- Python 3.13 + uv
+- AWS Payment Cryptography（支付 HSM）
+- AWS Lambda + API Gateway（POC 演示用）
+- AWS CDK（IaC）
+- Region: ap-southeast-1
 
 ## 安全措施
 
-- API Gateway 启用 API Key 认证
-- Usage Plan 限速（10 req/s，1000 req/day）
-- Lambda IAM 最小权限（仅 Verify 操作）
+- API Gateway 启用 API Key 认证 + 速率限制（10 req/s）
+- Lambda IAM 最小权限（仅允许 Verify 操作）
 - 密钥存储在 PCI PIN 认证的 AWS 托管 HSM 中
-- `.env` 已加入 `.gitignore`
 
 ## 清理资源
 
