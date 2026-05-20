@@ -123,12 +123,11 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
     });
   </script>
 </section>
-
 <section>
-  <h2>🎬 演示场景</h2>
-  <p style="color:#666;margin-bottom:1.5rem;">按真实业务流程组织，展示一笔交易从发起到授权的完整密码学处理链路。</p>
+  <h2>🎬 演示场景一：交易授权（实时）</h2>
+  <p style="color:#666;margin-bottom:1.5rem;">展示一笔交易从发起到授权的完整密码学处理链路。</p>
 
-  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">业务流程一：电商无卡交易 (Card Not Present)</h3>
+  <h3 style="color:var(--aws-dark);margin:1.5rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">电商无卡交易 (Card Not Present)</h3>
   <p style="margin-bottom:1rem;color:#555;">持卡人在线购物，商户将卡号+有效期+CVV2 发送到 Processor 验证。</p>
 
   <div class="scenario success">
@@ -163,7 +162,12 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
     <div class="output" id="output-cvv-bad"></div>
   </div>
 
-  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">业务流程二：非接触式支付 (Contactless / Tap-to-Pay)</h3>
+  <div class="scenario" style="border-left-color:#9e9e9e;">
+    <h3>3D Secure（CAVV）— 在线交易额外认证</h3>
+    <p style="color:#888;">🔲 支持，未演示 — 电商交易中验证持卡人身份的额外密码学步骤。后续版本补充。</p>
+  </div>
+
+  <h3 style="color:var(--aws-dark);margin:1.5rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">非接触式支付 (Contactless / Tap-to-Pay)</h3>
   <p style="margin-bottom:1rem;color:#555;">芯片卡每笔交易动态生成 dCVV2，基于 ATC（交易计数器）派生，防止重放攻击。</p>
 
   <div class="scenario success">
@@ -199,7 +203,7 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
     <div class="output" id="output-dcvv2-replay"></div>
   </div>
 
-  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">业务流程三：POS 刷卡 — 完整 PIN 处理链路</h3>
+  <h3 style="color:var(--aws-dark);margin:1.5rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">POS 刷卡 — 完整 PIN 处理链路</h3>
   <p style="margin-bottom:1rem;color:#555;">一笔 POS 交易从收单方到发卡方的完整密码学处理：MAC 验证 → PIN 翻译 → PIN 验证。这是 Card Processor 最核心的操作。</p>
 
   <div class="scenario success">
@@ -241,8 +245,56 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
     <button class="btn-run" id="btn-mac-tamper" onclick="runScenario('mac-tamper')">▶ 执行请求</button>
     <div class="output" id="output-mac-tamper"></div>
   </div>
+</section>
 
-  <h3 style="color:var(--aws-dark);margin:2rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">安全防护：API 认证</h3>
+<section>
+  <h2>🎬 演示场景二：发卡流程（离线）</h2>
+  <p style="color:#666;margin-bottom:1.5rem;">制卡阶段的密码学操作，为每张卡片生成唯一密钥。</p>
+
+  <div class="scenario" style="border-left-color:#9e9e9e;">
+    <h3>卡片个人化密钥派生</h3>
+    <p style="color:#888;">🔲 支持，未演示 — 制卡阶段为每张卡从 IMK 派生唯一密钥（UDK），写入芯片。后续版本补充。</p>
+  </div>
+</section>
+
+<section>
+  <h2>🎬 演示场景三：运营支撑（低频）</h2>
+  <p style="color:#666;margin-bottom:1.5rem;">日常运营中的敏感数据保护、密钥交换与 API 安全。</p>
+
+  <h3 style="color:var(--aws-dark);margin:1.5rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">敏感数据保护与密钥交换</h3>
+  <p style="margin-bottom:1rem;color:#555;">Processor 日常运营中需要加密存储敏感数据（如 PAN），以及与卡组织/收单方安全交换密钥。</p>
+
+  <div class="scenario success">
+    <h3>PAN 加密 — 敏感数据落盘保护</h3>
+    <p>将持卡人卡号加密后存储，明文 PAN 不落盘，满足 PCI DSS 要求。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "encrypt",
+  "pan": "5425230000004415"
+}
+
+→ 返回密文，可安全存储到数据库</pre>
+    <p>预期结果：<span class="result result-approved">✅ 返回 CipherText</span></p>
+    <button class="btn-run" id="btn-encrypt" onclick="runScenario('encrypt')">▶ 执行请求</button>
+    <div class="output" id="output-encrypt"></div>
+  </div>
+
+  <div class="scenario success">
+    <h3>TR-31 密钥导出 — 与外部系统交换密钥</h3>
+    <p>将 MAC 密钥以 TR-31 Key Block 格式导出，用于与卡组织或收单方安全交换。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "key_export",
+  "key_alias": "poc-mac-key"
+}
+
+→ 返回 TR-31 Key Block（可安全传输给对方导入）</pre>
+    <p>预期结果：<span class="result result-approved">✅ 返回 Key Block + KCV</span></p>
+    <button class="btn-run" id="btn-key-export" onclick="runScenario('key-export')">▶ 执行请求</button>
+    <div class="output" id="output-key-export"></div>
+  </div>
+
+  <h3 style="color:var(--aws-dark);margin:1.5rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">API 安全防护</h3>
 
   <div class="scenario failure">
     <h3>无 API Key — 未授权请求被拒</h3>
@@ -395,6 +447,23 @@ const SCENARIOS = {
     merchant: 'Tampered Message',
     message_data: '0200542523000044150000000099991234567890',
     mac: 'C8288190'
+  },
+  'encrypt': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'encrypt',
+    pan: '5425230000004415',
+    amount: 0,
+    currency: 'HKD',
+    merchant: 'Data Protection'
+  },
+  'key-export': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'key_export',
+    pan: '',
+    amount: 0,
+    currency: '',
+    merchant: 'Key Exchange',
+    key_alias: 'poc-mac-key'
   },
   'no-key': {
     transaction_type: 'ecommerce',

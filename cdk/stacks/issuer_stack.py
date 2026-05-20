@@ -37,6 +37,7 @@ class IssuerStack(Stack):
                 "payment-cryptography:GetAlias",
                 "payment-cryptography:GetKey",
                 "payment-cryptography:ListAliases",
+                "payment-cryptography:ExportKey",
             ],
             resources=[
                 f"arn:aws:payment-cryptography:ap-southeast-1:{self.account}:alias/*",
@@ -52,6 +53,8 @@ class IssuerStack(Stack):
                 "payment-cryptography-data:TranslatePinData",
                 "payment-cryptography-data:GenerateMac",
                 "payment-cryptography-data:VerifyMac",
+                "payment-cryptography-data:EncryptData",
+                "payment-cryptography-data:DecryptData",
             ],
             resources=["*"],
         ))

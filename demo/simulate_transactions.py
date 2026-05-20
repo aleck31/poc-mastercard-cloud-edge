@@ -142,6 +142,31 @@ def scenario_mac_tampered():
     }
 
 
+def scenario_encrypt_pan():
+    """场景: PAN 加密（敏感数据保护）"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "encrypt",
+        "pan": "5425230000004415",
+        "amount": 0,
+        "currency": "HKD",
+        "merchant": "Data Protection",
+    }
+
+
+def scenario_key_export():
+    """场景: TR-31 密钥导出（与外部系统交换密钥）"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "key_export",
+        "pan": "",
+        "amount": 0,
+        "currency": "",
+        "merchant": "Key Exchange",
+        "key_alias": "poc-mac-key",
+    }
+
+
 def main():
     print()
     print("=" * 60)
@@ -158,6 +183,8 @@ def main():
         ("ATM Cash Withdrawal (HSBC ATM)", scenario_atm_withdrawal),
         ("PIN Translate Pipeline (MAC→Translate→Verify)", scenario_pin_translate),
         ("MAC Verification - Tampered Message", scenario_mac_tampered),
+        ("PAN Encryption (Data Protection)", scenario_encrypt_pan),
+        ("TR-31 Key Export (Key Exchange)", scenario_key_export),
     ]
 
     for name, scenario_fn in scenarios:

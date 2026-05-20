@@ -157,6 +157,44 @@ def verify_mac(message_data, mac):
         return {"verified": False, "method": "MAC", "reason": "MAC verification failed - message tampered"}
 
 
+def encrypt_pan(pan):
+    """加密 PAN（敏感数据保护）"""
+    key_arn = get_key_arn("poc-data-encrypt-key")
+    pan_hex = pan.encode().hex()
+    resp = data_client.encrypt_data(
+        KeyIdentifier=key_arn,
+        PlainText=pan_hex,
+        EncryptionAttributes={"Symmetric": {"Mode": "CBC"}},
+    )
+    return {"cipher_text": resp["CipherText"], "method": "ENCRYPT"}
+
+
+def decrypt_pan(cipher_text):
+    """解密 PAN"""
+    key_arn = get_key_arn("poc-data-encrypt-key")
+    resp = data_client.decrypt_data(
+        KeyIdentifier=key_arn,
+        CipherText=cipher_text,
+        DecryptionAttributes={"Symmetric": {"Mode": "CBC"}},
+    )
+    return {"plain_text": bytes.fromhex(resp["PlainText"]).decode(), "method": "DECRYPT"}
+
+
+def export_key_tr31(key_alias):
+    """TR-31 密钥导出"""
+    key_arn = get_key_arn(key_alias)
+    kek_arn = get_key_arn("poc-kek")
+    resp = control_client.export_key(
+        ExportKeyIdentifier=key_arn,
+        KeyMaterial={"Tr31KeyBlock": {"WrappingKeyIdentifier": kek_arn}},
+    )
+    return {
+        "method": "TR31_EXPORT",
+        "key_block": resp["WrappedKey"]["KeyMaterial"],
+        "kcv": resp["WrappedKey"]["KeyCheckValue"],
+    }
+
+
 def authorize_transaction(event):
     """
     交易授权主入口
@@ -222,11 +260,17 @@ def authorize_transaction(event):
         crypto_result["pipeline"] = results
     elif tx_type == "mac_verify":
         crypto_result = verify_mac(event.get("message_data", ""), event.get("mac", ""))
+    elif tx_type == "encrypt":
+        crypto_result = encrypt_pan(pan)
+    elif tx_type == "decrypt":
+        crypto_result = decrypt_pan(event.get("cipher_text", ""))
+    elif tx_type == "key_export":
+        crypto_result = export_key_tr31(event.get("key_alias", "poc-mac-key"))
     else:
         return build_response("96", "System malfunction", event)
 
     # 授权决策
-    if not crypto_result["verified"]:
+    if not crypto_result.get("verified", crypto_result.get("success", True)):
         return build_response("05", "Do not honour", event, crypto_result)
 
     # 简单额度检查（演示用）

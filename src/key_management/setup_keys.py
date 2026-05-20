@@ -98,6 +98,20 @@ def setup_issuer_keys():
         key_usage="TR31_M1_ISO_9797_1_MAC_KEY",
     )
 
+    # 8. Data Encryption Key - 敏感数据加密
+    keys["data_encrypt_key"] = create_key(
+        alias="poc-data-encrypt-key",
+        key_usage="TR31_D0_SYMMETRIC_DATA_ENCRYPTION_KEY",
+        modes_of_use={"Encrypt": True, "Decrypt": True, "Wrap": True, "Unwrap": True},
+    )
+
+    # 9. KEK - Key Encryption Key（用于 TR-31 密钥导出/导入）
+    keys["kek"] = create_key(
+        alias="poc-kek",
+        key_usage="TR31_K0_KEY_ENCRYPTION_KEY",
+        modes_of_use={"Encrypt": True, "Decrypt": True, "Wrap": True, "Unwrap": True},
+    )
+
     # 保存密钥 ARN 映射
     output_path = ".state/key_arns.json"
     with open(output_path, "w") as f:
