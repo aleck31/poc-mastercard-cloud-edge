@@ -31,8 +31,8 @@
 | MAC 生成与验证 | 交易消息完整性认证 | ✅ 已验证 |
 | 数据加密/解密 | 敏感字段加密（如 PAN） | ✅ 已验证 |
 | 密钥交换（TR-31/TR-34） | 与卡组织/收单方密钥分发 | ✅ 已验证 |
-| 卡片个人化密钥派生 | 发卡时为每张卡派生唯一密钥 | 🔲 支持，未演示 |
-| 3D Secure（CAVV） | 在线交易额外认证 | 🔲 支持，未演示 |
+| 卡片个人化密钥派生 | 发卡时为每张卡派生唯一密钥 | ✅ 已验证 |
+| 3D Secure（CAVV） | 在线交易额外认证 | ✅ 已验证 |
 
 ## 生产化路径
 
@@ -63,7 +63,7 @@ Payment Cryptography              Payment Cryptography (不变)
 export AWS_PROFILE=<your-profile>  # 可选，默认使用 default profile
 ./deploy.sh
 
-# 运行演示
+# 本地演示（直接调用 AWS Payment Cryptography）
 uv run python3 demo/simulate_transactions.py
 
 # 通过 API 调用
@@ -76,7 +76,10 @@ curl -s -X POST "$API_URL/authorize" \
 
 ## 交互式演示
 
-部署完成后打开 [docs/presentation.html](docs/presentation.html)，在浏览器中直接点击按钮即可实时调用 API 查看结果。
+```bash
+./demo.sh         # 启动 http://localhost:8081/presentation.html
+./demo.sh 9090    # 自定义端口
+```
 
 ## 技术栈
 
@@ -95,7 +98,8 @@ curl -s -X POST "$API_URL/authorize" \
 ## 清理资源
 
 ```bash
-cd cdk && npx cdk destroy
-aws payment-cryptography list-aliases --region ap-southeast-1
-# 手动删除密钥（密钥有 7 天删除等待期）
+export AWS_PROFILE=<your-profile>
+./cleanup.sh
 ```
+
+自动销毁 API Gateway + Lambda，并安排所有 POC 密钥 3 天后删除。

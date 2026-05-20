@@ -195,6 +195,50 @@ def export_key_tr31(key_alias):
     }
 
 
+def verify_cavv(pan, pan_sequence, atc, unpredictable_number, cavv):
+    """验证 CAVV（3D Secure 持卡人认证）"""
+    key_arn = get_key_arn("poc-issuer-dcvv2-imk")
+    try:
+        data_client.verify_card_validation_data(
+            KeyIdentifier=key_arn,
+            PrimaryAccountNumber=pan,
+            VerificationAttributes={
+                "CardHolderVerificationValue": {
+                    "ApplicationTransactionCounter": atc,
+                    "PanSequenceNumber": pan_sequence,
+                    "UnpredictableNumber": unpredictable_number,
+                }
+            },
+            ValidationData=cavv,
+        )
+        return {"verified": True, "method": "CAVV_3DS"}
+    except data_client.exceptions.VerificationFailedException:
+        return {"verified": False, "method": "CAVV_3DS", "reason": "CAVV verification failed - 3DS authentication invalid"}
+
+
+def derive_card_key(pan, expiry_date, pan_sequence):
+    """卡片个人化：从 IMK 为特定卡片派生唯一密钥并生成验证值"""
+    key_arn = get_key_arn("poc-issuer-dcvv2-imk")
+    resp = data_client.generate_card_validation_data(
+        KeyIdentifier=key_arn,
+        PrimaryAccountNumber=pan,
+        GenerationAttributes={
+            "DynamicCardVerificationValue": {
+                "CardExpiryDate": expiry_date,
+                "PanSequenceNumber": pan_sequence,
+                "ApplicationTransactionCounter": "0001",
+                "ServiceCode": "101",
+            }
+        },
+    )
+    return {
+        "method": "CARD_KEY_DERIVATION",
+        "pan_masked": pan[:6] + "****" + pan[-4:],
+        "derived_validation": resp["ValidationData"],
+        "key_check_value": resp["KeyCheckValue"],
+    }
+
+
 def authorize_transaction(event):
     """
     交易授权主入口
@@ -266,6 +310,20 @@ def authorize_transaction(event):
         crypto_result = decrypt_pan(event.get("cipher_text", ""))
     elif tx_type == "key_export":
         crypto_result = export_key_tr31(event.get("key_alias", "poc-mac-key"))
+    elif tx_type == "3ds":
+        crypto_result = verify_cavv(
+            pan=pan,
+            pan_sequence=event.get("pan_sequence", "00"),
+            atc=event["atc"],
+            unpredictable_number=event["unpredictable_number"],
+            cavv=event["cavv"],
+        )
+    elif tx_type == "card_personalization":
+        crypto_result = derive_card_key(
+            pan=pan,
+            expiry_date=event["expiry_date"],
+            pan_sequence=event.get("pan_sequence", "00"),
+        )
     else:
         return build_response("96", "System malfunction", event)
 

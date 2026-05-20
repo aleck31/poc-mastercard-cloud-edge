@@ -167,6 +167,36 @@ def scenario_key_export():
     }
 
 
+def scenario_3ds_cavv():
+    """场景: 3D Secure CAVV 验证"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "3ds",
+        "pan": "5425230000004415",
+        "amount": 1500,
+        "currency": "HKD",
+        "merchant": "Online Store (3DS)",
+        "pan_sequence": "00",
+        "atc": "0001",
+        "unpredictable_number": "1234",
+        "cavv": "215",
+    }
+
+
+def scenario_card_personalization():
+    """场景: 卡片个人化密钥派生"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "card_personalization",
+        "pan": "5425230000004415",
+        "amount": 0,
+        "currency": "",
+        "merchant": "Card Personalization Bureau",
+        "expiry_date": "0127",
+        "pan_sequence": "00",
+    }
+
+
 def main():
     print()
     print("=" * 60)
@@ -185,6 +215,8 @@ def main():
         ("MAC Verification - Tampered Message", scenario_mac_tampered),
         ("PAN Encryption (Data Protection)", scenario_encrypt_pan),
         ("TR-31 Key Export (Key Exchange)", scenario_key_export),
+        ("3D Secure - CAVV Verification", scenario_3ds_cavv),
+        ("Card Personalization - Key Derivation", scenario_card_personalization),
     ]
 
     for name, scenario_fn in scenarios:

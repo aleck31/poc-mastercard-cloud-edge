@@ -162,9 +162,21 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
     <div class="output" id="output-cvv-bad"></div>
   </div>
 
-  <div class="scenario" style="border-left-color:#9e9e9e;">
+  <div class="scenario success">
     <h3>3D Secure（CAVV）— 在线交易额外认证</h3>
-    <p style="color:#888;">🔲 支持，未演示 — 电商交易中验证持卡人身份的额外密码学步骤。后续版本补充。</p>
+    <p>电商交易中，ACS 服务器生成 CAVV 发送到发卡方验证持卡人身份。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "3ds",
+  "pan": "5425230000004415",
+  "amount": 1500, "currency": "HKD",
+  "merchant": "Online Store (3DS)",
+  "pan_sequence": "00", "atc": "0001",
+  "unpredictable_number": "1234", "cavv": "215"
+}</pre>
+    <p>预期结果：<span class="result result-approved">✅ 00 - Approved (CAVV valid)</span></p>
+    <button class="btn-run" id="btn-3ds" onclick="runScenario('3ds')">▶ 执行请求</button>
+    <div class="output" id="output-3ds"></div>
   </div>
 
   <h3 style="color:var(--aws-dark);margin:1.5rem 0 1rem;border-left:4px solid var(--mc-orange);padding-left:0.8rem;">非接触式支付 (Contactless / Tap-to-Pay)</h3>
@@ -251,9 +263,21 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
   <h2>🎬 演示场景二：发卡流程（离线）</h2>
   <p style="color:#666;margin-bottom:1.5rem;">制卡阶段的密码学操作，为每张卡片生成唯一密钥。</p>
 
-  <div class="scenario" style="border-left-color:#9e9e9e;">
+  <div class="scenario success">
     <h3>卡片个人化密钥派生</h3>
-    <p style="color:#888;">🔲 支持，未演示 — 制卡阶段为每张卡从 IMK 派生唯一密钥（UDK），写入芯片。后续版本补充。</p>
+    <p>制卡阶段，从 Issuer Master Key (IMK) 为每张卡派生唯一密钥（UDK），不同卡号产生不同的派生结果。</p>
+    <pre>POST /authorize
+{
+  "transaction_type": "card_personalization",
+  "pan": "5425230000004415",
+  "expiry_date": "0127",
+  "pan_sequence": "00"
+}
+
+→ IMK + PAN + PSN → 派生唯一密钥 → 写入芯片</pre>
+    <p>预期结果：<span class="result result-approved">✅ 返回派生验证值 + KCV</span></p>
+    <button class="btn-run" id="btn-card-perso" onclick="runScenario('card-perso')">▶ 执行请求</button>
+    <div class="output" id="output-card-perso"></div>
   </div>
 </section>
 
@@ -464,6 +488,28 @@ const SCENARIOS = {
     currency: '',
     merchant: 'Key Exchange',
     key_alias: 'poc-mac-key'
+  },
+  '3ds': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: '3ds',
+    pan: '5425230000004415',
+    amount: 1500,
+    currency: 'HKD',
+    merchant: 'Online Store (3DS)',
+    pan_sequence: '00',
+    atc: '0001',
+    unpredictable_number: '1234',
+    cavv: '215'
+  },
+  'card-perso': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'card_personalization',
+    pan: '5425230000004415',
+    amount: 0,
+    currency: '',
+    merchant: 'Card Personalization Bureau',
+    expiry_date: '0127',
+    pan_sequence: '00'
   },
   'no-key': {
     transaction_type: 'ecommerce',
