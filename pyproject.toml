@@ -1,0 +1,11 @@
+[project]
+name = "poc-mastercard-cloud-edge"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aws-cdk-lib>=2.256.0",
+    "boto3>=1.43.11",
+    "constructs>=10.6.0",
+]

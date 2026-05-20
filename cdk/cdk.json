@@ -1,0 +1,6 @@
+{
+  "app": "uv run --project .. python3 app.py",
+  "context": {
+    "@aws-cdk/core:stackName": "poc-mastercard-cloud-edge"
+  }
+}

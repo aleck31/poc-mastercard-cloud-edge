@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POC: Mastercard Cloud Edge + AWS Payment Cryptography</title>
+<style>
+:root { --aws-orange: #ff9900; --aws-dark: #232f3e; --mc-red: #eb001b; --mc-orange: #f79e1b; --success: #2e7d32; --error: #c62828; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; line-height: 1.6; background: #f8f9fa; }
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+header { background: linear-gradient(135deg, var(--aws-dark), #37475a); color: #fff; padding: 3rem 2rem; text-align: center; }
+header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+header p { opacity: 0.85; font-size: 1.1rem; }
+.badges { margin-top: 1rem; }
+.badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; margin: 0.2rem; }
+.badge-aws { background: var(--aws-orange); color: #000; }
+.badge-mc { background: var(--mc-red); color: #fff; }
+.badge-region { background: #1976d2; color: #fff; }
+section { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 2rem; margin: 1.5rem 0; }
+h2 { color: var(--aws-dark); border-bottom: 3px solid var(--aws-orange); padding-bottom: 0.5rem; margin-bottom: 1.5rem; font-size: 1.4rem; }
+h3 { margin: 1.5rem 0 0.8rem; color: #37475a; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+th { background: var(--aws-dark); color: #fff; padding: 0.7rem; text-align: left; }
+td { padding: 0.7rem; border-bottom: 1px solid #eee; }
+tr:hover td { background: #f5f5f5; }
+pre { background: #1e1e1e; color: #d4d4d4; padding: 1.2rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; margin: 1rem 0; }
+.keyword { color: #569cd6; }
+.string { color: #ce9178; }
+.comment { color: #6a9955; }
+code { background: #e8e8e8; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.85rem; }
+.scenario { border-left: 4px solid var(--aws-orange); padding: 1.5rem; margin: 1.5rem 0; background: #fafafa; border-radius: 0 6px 6px 0; }
+.scenario.success { border-left-color: var(--success); }
+.scenario.failure { border-left-color: var(--error); }
+.scenario h3 { margin-top: 0; }
+.result { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
+.result-approved { background: #e8f5e9; color: var(--success); }
+.result-declined { background: #ffebee; color: var(--error); }
+.result-forbidden { background: #fff3e0; color: #e65100; }
+.arch-diagram { background: #f0f4f8; border: 1px solid #d0d7de; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; font-family: 'Courier New', monospace; font-size: 0.82rem; white-space: pre; overflow-x: auto; line-height: 1.4; }
+.comparison td:first-child { font-weight: 600; width: 40%; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+.note { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 1rem; margin: 1rem 0; font-size: 0.9rem; }
+.note::before { content: "💡 "; }
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li { counter-increment: step; padding: 0.8rem 0 0.8rem 3rem; position: relative; border-bottom: 1px solid #f0f0f0; }
+.steps li::before { content: counter(step); position: absolute; left: 0; width: 2rem; height: 2rem; background: var(--aws-orange); color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏦 Mastercard Cloud Edge + AWS Payment Cryptography</h1>
+  <p>香港发卡方（Issuer）POC 演示</p>
+  <div class="badges">
+    <span class="badge badge-mc">Mastercard Cloud Edge</span>
+    <span class="badge badge-aws">AWS Payment Cryptography</span>
+    <span class="badge badge-region">ap-southeast-1</span>
+  </div>
+</header>
+
+<div class="container">
+
+<section>
+  <h2>📋 演示背景</h2>
+  <p>Mastercard 于 2025 年 6 月宣布推出 <strong>Cloud Edge</strong> 平台，与 AWS 合作让亚太地区银行和金融科技公司通过云端快速接入 Mastercard 支付网络，onboarding 时间缩短 4 倍。</p>
+  <p style="margin-top:1rem">本 POC 演示发卡方如何利用 <strong>AWS Payment Cryptography</strong> 替代传统物理 HSM，完成支付交易的密码学验证。</p>
+
+  <h3>价值对比</h3>
+  <table class="comparison">
+    <tr><th>传统方式</th><th>Cloud Edge + AWS 方式</th></tr>
+    <tr><td>采购物理 HSM，数月交付</td><td>API 调用即用，分钟级开通</td></tr>
+    <tr><td>物理机房 + 专线接入</td><td>AWS PrivateLink 私有连接</td></tr>
+    <tr><td>HSM 固件升级需人工操作</td><td>全托管，AWS 负责维护</td></tr>
+    <tr><td>固定容量，扩容需采购硬件</td><td>自动弹性伸缩</td></tr>
+    <tr><td>Onboarding 耗时 12-16 周</td><td>缩短至 3-4 周</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>🏗️ 架构概览</h2>
+  <div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────────┐
+│                    AWS (ap-southeast-1)                          │
+│                                                                 │
+│  ┌──────────────┐     ┌──────────────┐     ┌────────────────┐  │
+│  │ API Gateway  │────▶│    Lambda    │────▶│   Payment      │  │
+│  │ (Cloud Edge  │     │  (Issuer     │     │ Cryptography   │  │
+│  │  模拟入口)    │     │   Host)      │     │  (支付 HSM)     │  │
+│  └──────────────┘     └──────────────┘     └────────────────┘  │
+│    ↑ API Key 认证         │                                     │
+│    ↑ 速率限制 10req/s     │ ISO 20022 授权响应                    │
+│                           ▼                                     │
+│                    ┌──────────────┐                              │
+│                    │ CloudWatch   │                              │
+│                    │ (审计追踪)    │                              │
+│                    └──────────────┘                              │
+└─────────────────────────────────────────────────────────────────┘</div>
+</section>
+
+<section>
+  <h2>🔐 密钥体系</h2>
+  <table>
+    <tr><th>密钥</th><th>别名</th><th>用途</th><th>算法</th></tr>
+    <tr><td>CVK</td><td>poc-issuer-cvk</td><td>CVV/CVV2 生成与验证</td><td>TDES_2KEY</td></tr>
+    <tr><td>PVK</td><td>poc-issuer-pvk</td><td>PIN 验证</td><td>TDES_2KEY</td></tr>
+    <tr><td>IMK-AC</td><td>poc-issuer-imk-ac</td><td>EMV ARQC/ARPC 派生</td><td>TDES_2KEY</td></tr>
+    <tr><td>PEK</td><td>poc-issuer-pek</td><td>PIN Block 加密/解密</td><td>TDES_2KEY</td></tr>
+  </table>
+  <div class="note">所有密钥存储在 AWS Payment Cryptography 托管 HSM 中，已通过 PCI PIN 和 PCI P2PE 认证。支持 TR-31 Key Block 格式与现有 HSM 互通。</div>
+</section>
+
+<section>
+  <h2>🎬 演示场景</h2>
+
+  <div class="scenario success">
+    <h3>场景 1：电商交易 — CVV2 验证通过</h3>
+    <p>持卡人在 HKTVmall 网购 HKD 299，输入正确的 CVV2。</p>
+    <pre><span class="comment"># 正确 CVV2 → 批准</span>
+curl -s -X POST "$API_URL/authorize" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{
+    "transaction_type": "ecommerce",
+    "pan": "5425230000004415",
+    "amount": 299, "currency": "HKD",
+    "merchant": "HKTVmall",
+    "expiry_date": "0127", "cvv2": "683"
+  }'</pre>
+    <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
+    <p><strong>要点：</strong>CVV2 由 AWS Payment Cryptography 使用 CVK 密钥实时验证，延迟 &lt; 50ms。</p>
+  </div>
+
+  <div class="scenario failure">
+    <h3>场景 2：欺诈拦截 — CVV2 错误</h3>
+    <p>盗卡者猜测 CVV2 进行交易，被即时拦截。</p>
+    <pre><span class="comment"># 错误 CVV2 → 拒绝</span>
+curl -s -X POST "$API_URL/authorize" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{
+    "transaction_type": "ecommerce",
+    "pan": "5425230000004415",
+    "amount": 1200, "currency": "HKD",
+    "merchant": "Suspicious Store",
+    "expiry_date": "0127", "cvv2": "999"
+  }'</pre>
+    <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour</span></p>
+    <p><strong>要点：</strong>错误 CVV2 被即时识别并拒绝，保护持卡人资金安全。</p>
+  </div>
+
+  <div class="scenario success">
+    <h3>场景 3：ATM 取款 — PIN 验证</h3>
+    <p>持卡人在铜锣湾 HSBC ATM 取款 HKD 5,000，输入正确 PIN。</p>
+    <pre><span class="comment"># PIN 验证 → 批准</span>
+curl -s -X POST "$API_URL/authorize" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{
+    "transaction_type": "atm",
+    "pan": "5425230000004415",
+    "amount": 5000, "currency": "HKD",
+    "merchant": "HSBC ATM Causeway Bay",
+    "encrypted_pin_block": "4AA2132737F32585",
+    "pin_verification_value": "1064"
+  }'</pre>
+    <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
+    <p><strong>要点：</strong>PIN 明文从不出现在应用层，全程在 HSM 内处理，符合 PCI PIN 合规。</p>
+  </div>
+
+  <div class="scenario failure">
+    <h3>场景 4：未授权请求 — 安全防护</h3>
+    <p>不带 API Key 的请求被 API Gateway 直接拒绝。</p>
+    <pre><span class="comment"># 无 API Key → Forbidden</span>
+curl -s -X POST "$API_URL/authorize" \
+  -H "Content-Type: application/json" \
+  -d '{"transaction_type":"ecommerce","pan":"5425230000004415",...}'</pre>
+    <p>预期结果：<span class="result result-forbidden">🚫 403 - Forbidden</span></p>
+  </div>
+</section>
+
+<section>
+  <h2>✅ 合规与安全</h2>
+  <div class="two-col">
+    <div>
+      <h3>认证状态</h3>
+      <table>
+        <tr><td>PCI PIN</td><td>✅ 已通过</td></tr>
+        <tr><td>PCI P2PE</td><td>✅ 已通过</td></tr>
+        <tr><td>PCI DSS</td><td>✅ AWS 基础设施</td></tr>
+        <tr><td>数据驻留</td><td>✅ ap-southeast-1</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>安全措施</h3>
+      <table>
+        <tr><td>API 认证</td><td>API Key + Usage Plan</td></tr>
+        <tr><td>速率限制</td><td>10 req/s, 1000 req/day</td></tr>
+        <tr><td>IAM 权限</td><td>仅允许 Verify 操作</td></tr>
+        <tr><td>审计</td><td>CloudTrail 全程记录</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>💰 成本估算</h2>
+  <div class="two-col">
+    <div>
+      <h3>POC 级别</h3>
+      <table>
+        <tr><td>密钥（4 把）</td><td>~$4/月</td></tr>
+        <tr><td>API 调用</td><td>~$0.10/月</td></tr>
+        <tr><td>Lambda</td><td>Free Tier</td></tr>
+        <tr><td>API Gateway</td><td>~$3.50/月</td></tr>
+        <tr><th>合计</th><th>~$8/月</th></tr>
+      </table>
+    </div>
+    <div>
+      <h3>生产级别（100万笔/月）</h3>
+      <table>
+        <tr><td>密钥</td><td>~$20/月</td></tr>
+        <tr><td>API 调用</td><td>~$100/月</td></tr>
+        <tr><td>Lambda</td><td>~$50/月</td></tr>
+        <tr><td>API Gateway</td><td>~$350/月</td></tr>
+        <tr><th>合计</th><th>~$520/月</th></tr>
+      </table>
+      <div class="note">对比物理 HSM 方案：硬件采购 $50K-100K + 年维护费 $10K-20K + 机房专线费用</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>🚀 后续对接路径</h2>
+  <ol class="steps">
+    <li><strong>申请 Mastercard Cloud Edge 接入</strong> — 联系 Mastercard 获取测试环境和 Cloud Edge 接入凭证</li>
+    <li><strong>网络连接</strong> — 将 API Gateway 替换为通过 AWS PrivateLink 直连 Mastercard 网络</li>
+    <li><strong>密钥交换</strong> — 使用 TR-31 格式与 Mastercard 交换 Zone Master Key</li>
+    <li><strong>消息格式</strong> — 对接完整 ISO 20022 消息规范（pacs.008/pacs.002）</li>
+    <li><strong>认证测试</strong> — 通过 Mastercard 的集成测试和 M-TIP 认证流程</li>
+    <li><strong>正式上线</strong> — 切换至生产环境，启用监控和告警</li>
+  </ol>
+</section>
+
+</div>
+
+<footer>
+  <p>POC by RedotPay × AWS | Region: ap-southeast-1 (Singapore) | 2026-05</p>
+</footer>
+
+</body>
+</html>
