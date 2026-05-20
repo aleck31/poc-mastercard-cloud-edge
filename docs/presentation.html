@@ -43,6 +43,15 @@ code { background: #e8e8e8; padding: 0.15rem 0.4rem; border-radius: 3px; font-si
 @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
 .note { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 1rem; margin: 1rem 0; font-size: 0.9rem; }
 .note::before { content: "💡 "; }
+.config-panel { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 1.2rem; margin: 1rem 0; }
+.config-panel input { width: 100%; padding: 0.5rem; margin: 0.3rem 0 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+.config-panel label { font-weight: 600; font-size: 0.85rem; }
+.btn-run { background: var(--aws-orange); color: #000; border: none; padding: 0.5rem 1.2rem; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85rem; margin-top: 0.8rem; }
+.btn-run:hover { background: #e68a00; }
+.btn-run:disabled { opacity: 0.5; cursor: wait; }
+.output { display: none; background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; margin-top: 0.8rem; max-height: 300px; overflow-y: auto; }
+.output-success { border-left: 4px solid var(--success); }
+.output-error { border-left: 4px solid var(--error); }
 .steps { counter-reset: step; list-style: none; padding: 0; }
 .steps li { counter-increment: step; padding: 0.8rem 0 0.8rem 3rem; position: relative; border-bottom: 1px solid #f0f0f0; }
 .steps li::before { content: counter(step); position: absolute; left: 0; width: 2rem; height: 2rem; background: var(--aws-orange); color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
@@ -53,7 +62,7 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
 
 <header>
   <h1>🏦 Mastercard Cloud Edge + AWS Payment Cryptography</h1>
-  <p>香港发卡方（Issuer）POC 演示</p>
+  <p>发卡方（Issuer）POC 演示</p>
   <div class="badges">
     <span class="badge badge-mc">Mastercard Cloud Edge</span>
     <span class="badge badge-aws">AWS Payment Cryptography</span>
@@ -113,6 +122,25 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
 </section>
 
 <section>
+  <h2>⚙️ 演示配置</h2>
+  <div class="config-panel">
+    <label>API URL</label>
+    <input type="text" id="cfg-url" placeholder="https://xxxxxx.execute-api.ap-southeast-1.amazonaws.com/v1/" oninput="updateConfig()">
+    <label>API Key</label>
+    <input type="password" id="cfg-key" placeholder="输入 API Key" oninput="updateConfig()">
+    <span id="config-status" style="font-size:0.85rem;">⚠️ 未完成</span>
+  </div>
+  <script>
+    // 从 config.js 预填
+    document.addEventListener('DOMContentLoaded', function() {
+      if (CONFIG.apiUrl) document.getElementById('cfg-url').value = CONFIG.apiUrl;
+      if (CONFIG.apiKey) document.getElementById('cfg-key').value = CONFIG.apiKey;
+      updateConfig();
+    });
+  </script>
+</section>
+
+<section>
   <h2>🎬 演示场景</h2>
 
   <div class="scenario success">
@@ -131,6 +159,8 @@ curl -s -X POST "$API_URL/authorize" \
   }'</pre>
     <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
     <p><strong>要点：</strong>CVV2 由 AWS Payment Cryptography 使用 CVK 密钥实时验证，延迟 &lt; 50ms。</p>
+    <button class="btn-run" id="btn-cvv-ok" onclick="runScenario('cvv-ok')">▶ 执行请求</button>
+    <div class="output" id="output-cvv-ok"></div>
   </div>
 
   <div class="scenario failure">
@@ -149,6 +179,8 @@ curl -s -X POST "$API_URL/authorize" \
   }'</pre>
     <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour</span></p>
     <p><strong>要点：</strong>错误 CVV2 被即时识别并拒绝，保护持卡人资金安全。</p>
+    <button class="btn-run" id="btn-cvv-bad" onclick="runScenario('cvv-bad')">▶ 执行请求</button>
+    <div class="output" id="output-cvv-bad"></div>
   </div>
 
   <div class="scenario success">
@@ -168,6 +200,8 @@ curl -s -X POST "$API_URL/authorize" \
   }'</pre>
     <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
     <p><strong>要点：</strong>PIN 明文从不出现在应用层，全程在 HSM 内处理，符合 PCI PIN 合规。</p>
+    <button class="btn-run" id="btn-pin-ok" onclick="runScenario('pin-ok')">▶ 执行请求</button>
+    <div class="output" id="output-pin-ok"></div>
   </div>
 
   <div class="scenario failure">
@@ -178,6 +212,8 @@ curl -s -X POST "$API_URL/authorize" \
   -H "Content-Type: application/json" \
   -d '{"transaction_type":"ecommerce","pan":"5425230000004415",...}'</pre>
     <p>预期结果：<span class="result result-forbidden">🚫 403 - Forbidden</span></p>
+    <button class="btn-run" id="btn-no-key" onclick="runScenario('no-key')">▶ 执行请求</button>
+    <div class="output" id="output-no-key"></div>
   </div>
 </section>
 
@@ -249,6 +285,95 @@ curl -s -X POST "$API_URL/authorize" \
 <footer>
   <p>POC by RedotPay × AWS | Region: ap-southeast-1 (Singapore) | 2026-05</p>
 </footer>
+
+<script src="config.js"></script>
+<script>
+const SCENARIOS = {
+  'cvv-ok': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'ecommerce',
+    pan: '5425230000004415',
+    amount: 299,
+    currency: 'HKD',
+    merchant: 'HKTVmall',
+    expiry_date: '0127',
+    cvv2: '683'
+  },
+  'cvv-bad': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'ecommerce',
+    pan: '5425230000004415',
+    amount: 1200,
+    currency: 'HKD',
+    merchant: 'Suspicious Store',
+    expiry_date: '0127',
+    cvv2: '999'
+  },
+  'pin-ok': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'atm',
+    pan: '5425230000004415',
+    amount: 5000,
+    currency: 'HKD',
+    merchant: 'HSBC ATM Causeway Bay',
+    encrypted_pin_block: '4AA2132737F32585',
+    pin_verification_value: '1064'
+  },
+  'no-key': {
+    transaction_type: 'ecommerce',
+    pan: '5425230000004415',
+    amount: 100,
+    currency: 'HKD',
+    expiry_date: '0127',
+    cvv2: '683'
+  }
+};
+
+async function runScenario(scenarioId) {
+  const btn = document.getElementById('btn-' + scenarioId);
+  const output = document.getElementById('output-' + scenarioId);
+
+  if (!CONFIG.apiUrl || !CONFIG.apiKey) {
+    output.textContent = '⚠️  请先在页面顶部配置 API URL 和 API Key';
+    output.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 请求中...';
+  output.style.display = 'block';
+  output.textContent = '正在调用 AWS Payment Cryptography...';
+
+  const skipApiKey = scenarioId === 'no-key';
+  const headers = { 'Content-Type': 'application/json' };
+  if (!skipApiKey) headers['x-api-key'] = CONFIG.apiKey;
+
+  const startTime = performance.now();
+  try {
+    const resp = await fetch(CONFIG.apiUrl + 'authorize', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(SCENARIOS[scenarioId])
+    });
+    const elapsed = Math.round(performance.now() - startTime);
+    const data = await resp.json();
+    output.textContent = `⏱️ ${elapsed}ms | HTTP ${resp.status}\n\n` + JSON.stringify(data, null, 2);
+    output.className = 'output ' + (resp.status === 200 ? 'output-success' : 'output-error');
+  } catch (err) {
+    output.textContent = '❌ Error: ' + err.message;
+    output.className = 'output output-error';
+  }
+  btn.disabled = false;
+  btn.textContent = '▶ 执行请求';
+}
+
+function updateConfig() {
+  CONFIG.apiUrl = document.getElementById('cfg-url').value.trim();
+  if (CONFIG.apiUrl && !CONFIG.apiUrl.endsWith('/')) CONFIG.apiUrl += '/';
+  CONFIG.apiKey = document.getElementById('cfg-key').value.trim();
+  document.getElementById('config-status').textContent = CONFIG.apiUrl && CONFIG.apiKey ? '✅ 已配置' : '⚠️ 未完成';
+}
+</script>
 
 </body>
 </html>

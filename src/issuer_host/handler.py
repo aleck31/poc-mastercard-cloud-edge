@@ -152,6 +152,10 @@ def lambda_handler(event, context):
     result = authorize_transaction(body)
     return {
         "statusCode": 200 if result["response_code"] == "00" else 400,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+        },
         "body": json.dumps(result),
     }

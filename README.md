@@ -4,8 +4,6 @@
 
 模拟香港发卡方（Issuer）通过 Mastercard Cloud Edge 接入支付网络，使用 AWS Payment Cryptography 替代传统物理 HSM 完成支付交易授权。
 
-**参考新闻**：[Mastercard 透過 Cloud Edge 平台將客戶涵接其支付網絡時間縮短四倍](https://www.mastercard.com/news/ap/zh-hk/新聞中心/新聞發佈/zh-hk/2025/mastercard透過cloud-edge平台將客戶涵接其支付網絡時間縮短四倍/)
-
 ## 技术栈
 
 - Python 3.13 + uv
@@ -43,8 +41,7 @@ curl -s -X POST "$API_URL/authorize" \
 
 ## 文档
 
-- [演示指南](docs/presentation.md) — 完整演示步骤和讲解要点
-- [架构详情](README.md) — 本文件
+- [演示指南](docs/presentation.html) — 交互式演示，支持浏览器内实时调用 API
 
 ## 安全措施
 
@@ -57,7 +54,7 @@ curl -s -X POST "$API_URL/authorize" \
 ## 清理资源
 
 ```bash
-cd cdk && npx cdk destroy --profile lab
-AWS_PROFILE=lab aws payment-cryptography list-aliases --region ap-southeast-1
+cd cdk && npx cdk destroy
+aws payment-cryptography list-aliases --region ap-southeast-1
 # 手动删除密钥（密钥有 7 天删除等待期）
 ```

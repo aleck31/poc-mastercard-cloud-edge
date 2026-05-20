@@ -4,3 +4,4 @@
 __pycache__/
 cdk/cdk.out/
 *.pyc
+docs/config.js

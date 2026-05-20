@@ -49,6 +49,16 @@ AWS_PROFILE=${PROFILE}
 EOF
 echo "📝 .env updated"
 
+# 生成前端配置
+cat > docs/config.js <<JSEOF
+// Auto-generated from deploy.sh - do not commit
+const CONFIG = {
+  apiUrl: '${API_URL}',
+  apiKey: '${API_KEY}'
+};
+JSEOF
+echo "📝 docs/config.js updated"
+
 # Step 3: 初始化密钥
 echo ""
 echo "🔐 Step 3/4: Setting up payment keys..."

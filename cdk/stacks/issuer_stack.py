@@ -63,7 +63,13 @@ class IssuerStack(Stack):
         )
 
         # POST /authorize - 授权请求（需要 API Key）
-        authorize = api.root.add_resource("authorize")
+        authorize = api.root.add_resource("authorize",
+            default_cors_preflight_options=apigw.CorsOptions(
+                allow_origins=apigw.Cors.ALL_ORIGINS,
+                allow_methods=["POST", "OPTIONS"],
+                allow_headers=["Content-Type", "x-api-key"],
+            ),
+        )
         authorize.add_method("POST", apigw.LambdaIntegration(issuer_fn), api_key_required=True)
 
         # API Key + Usage Plan
