@@ -63,6 +63,40 @@ def scenario_ecommerce_wrong_cvv():
     }
 
 
+def scenario_contactless_dcvv2():
+    """场景3: 非接触式支付 - dCVV2 动态验证"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "contactless",
+        "pan": "5425230000004415",
+        "amount": 88,
+        "currency": "HKD",
+        "merchant": "Octopus Top-up MTR",
+        "expiry_date": "0127",
+        "pan_sequence": "00",
+        "atc": "0001",
+        "service_code": "101",
+        "dcvv2": "166",
+    }
+
+
+def scenario_contactless_replay_attack():
+    """场景3b: 非接触式支付 - dCVV2 重放攻击拦截"""
+    return {
+        "transaction_id": str(uuid.uuid4()),
+        "transaction_type": "contactless",
+        "pan": "5425230000004415",
+        "amount": 88,
+        "currency": "HKD",
+        "merchant": "Replayed Transaction",
+        "expiry_date": "0127",
+        "pan_sequence": "00",
+        "atc": "0009",  # 错误的 ATC，模拟重放攻击
+        "service_code": "101",
+        "dcvv2": "166",
+    }
+
+
 def scenario_atm_withdrawal():
     """场景3: ATM 取款 - PIN 验证"""
     return {
@@ -88,6 +122,8 @@ def main():
         ("EMV Chip Card - POS Purchase (7-Eleven HK)", scenario_emv_chip_transaction),
         ("E-commerce - Online Purchase (HKTVmall)", scenario_ecommerce_transaction),
         ("E-commerce - Wrong CVV (Fraud Attempt)", scenario_ecommerce_wrong_cvv),
+        ("Contactless - dCVV2 (Octopus Top-up)", scenario_contactless_dcvv2),
+        ("Contactless - dCVV2 Replay Attack", scenario_contactless_replay_attack),
         ("ATM Cash Withdrawal (HSBC ATM)", scenario_atm_withdrawal),
     ]
 

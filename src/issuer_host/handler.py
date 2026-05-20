@@ -35,6 +35,28 @@ def verify_cvv2(pan, expiry_date, cvv2):
         return {"verified": False, "method": "CVV2", "reason": "CVV2 mismatch"}
 
 
+def verify_dcvv2(pan, expiry_date, pan_sequence, atc, service_code, dcvv2):
+    """验证 dCVV2（动态卡验证值，防重放攻击）"""
+    key_arn = get_key_arn("poc-issuer-dcvv2-imk")
+    try:
+        data_client.verify_card_validation_data(
+            KeyIdentifier=key_arn,
+            PrimaryAccountNumber=pan,
+            VerificationAttributes={
+                "DynamicCardVerificationValue": {
+                    "CardExpiryDate": expiry_date,
+                    "PanSequenceNumber": pan_sequence,
+                    "ApplicationTransactionCounter": atc,
+                    "ServiceCode": service_code,
+                }
+            },
+            ValidationData=dcvv2,
+        )
+        return {"verified": True, "method": "dCVV2"}
+    except data_client.exceptions.VerificationFailedException:
+        return {"verified": False, "method": "dCVV2", "reason": "dCVV2 verification failed (possible replay attack)"}
+
+
 def verify_arqc(pan, pan_sequence, arqc, transaction_data):
     """验证 ARQC 并生成 ARPC（芯片卡交易）"""
     key_arn = get_key_arn("poc-issuer-imk-ac")
@@ -107,6 +129,15 @@ def authorize_transaction(event):
             pan=pan,
             expiry_date=event["expiry_date"],
             cvv2=event["cvv2"],
+        )
+    elif tx_type == "contactless":
+        crypto_result = verify_dcvv2(
+            pan=pan,
+            expiry_date=event["expiry_date"],
+            pan_sequence=event.get("pan_sequence", "00"),
+            atc=event["atc"],
+            service_code=event.get("service_code", "101"),
+            dcvv2=event["dcvv2"],
         )
     elif tx_type == "atm":
         crypto_result = verify_pin(

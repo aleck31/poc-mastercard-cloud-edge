@@ -90,23 +90,7 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
 
 <section>
   <h2>🏗️ 架构概览</h2>
-  <div class="arch-diagram">
-┌─────────────────────────────────────────────────────────────────┐
-│                    AWS (ap-southeast-1)                          │
-│                                                                 │
-│  ┌──────────────┐     ┌──────────────┐     ┌────────────────┐  │
-│  │ API Gateway  │────▶│    Lambda    │────▶│   Payment      │  │
-│  │ (Cloud Edge  │     │  (Issuer     │     │ Cryptography   │  │
-│  │  模拟入口)    │     │   Host)      │     │  (支付 HSM)     │  │
-│  └──────────────┘     └──────────────┘     └────────────────┘  │
-│    ↑ API Key 认证         │                                     │
-│    ↑ 速率限制 10req/s     │ ISO 20022 授权响应                    │
-│                           ▼                                     │
-│                    ┌──────────────┐                              │
-│                    │ CloudWatch   │                              │
-│                    │ (审计追踪)    │                              │
-│                    └──────────────┘                              │
-└─────────────────────────────────────────────────────────────────┘</div>
+  <img src="architecture.png" alt="POC Architecture" style="width:100%;border-radius:8px;border:1px solid #d0d7de;padding:1.5rem;">
 </section>
 
 <section>
@@ -184,7 +168,49 @@ curl -s -X POST "$API_URL/authorize" \
   </div>
 
   <div class="scenario success">
-    <h3>场景 3：ATM 取款 — PIN 验证</h3>
+    <h3>场景 3：非接触式支付 — dCVV2 动态验证</h3>
+    <p>持卡人用 Tap-to-Pay 在港铁充值 HKD 88，芯片动态生成 dCVV2。</p>
+    <pre><span class="comment"># dCVV2 + 正确 ATC → 批准</span>
+curl -s -X POST "$API_URL/authorize" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{
+    "transaction_type": "contactless",
+    "pan": "5425230000004415",
+    "amount": 88, "currency": "HKD",
+    "merchant": "Octopus Top-up MTR",
+    "expiry_date": "0127", "pan_sequence": "00",
+    "atc": "0001", "service_code": "101", "dcvv2": "166"
+  }'</pre>
+    <p>预期结果：<span class="result result-approved">✅ 00 - Approved</span></p>
+    <p><strong>要点：</strong>dCVV2 基于 ATC（应用交易计数器）动态派生，每笔交易值不同，比静态 CVV2 更安全。</p>
+    <button class="btn-run" id="btn-dcvv2-ok" onclick="runScenario('dcvv2-ok')">▶ 执行请求</button>
+    <div class="output" id="output-dcvv2-ok"></div>
+  </div>
+
+  <div class="scenario failure">
+    <h3>场景 4：重放攻击拦截 — dCVV2 + 错误 ATC</h3>
+    <p>攻击者截获历史交易数据尝试重放，但 ATC 不匹配被拦截。</p>
+    <pre><span class="comment"># dCVV2 + 错误 ATC → 拦截</span>
+curl -s -X POST "$API_URL/authorize" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d '{
+    "transaction_type": "contactless",
+    "pan": "5425230000004415",
+    "amount": 88, "currency": "HKD",
+    "merchant": "Replayed Transaction",
+    "expiry_date": "0127", "pan_sequence": "00",
+    "atc": "0009", "service_code": "101", "dcvv2": "166"
+  }'</pre>
+    <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour</span></p>
+    <p><strong>要点：</strong>即使 dCVV2 值正确，ATC 不匹配即判定为重放攻击，交易被拒。</p>
+    <button class="btn-run" id="btn-dcvv2-replay" onclick="runScenario('dcvv2-replay')">▶ 执行请求</button>
+    <div class="output" id="output-dcvv2-replay"></div>
+  </div>
+
+  <div class="scenario success">
+    <h3>场景 5：ATM 取款 — PIN 验证</h3>
     <p>持卡人在铜锣湾 HSBC ATM 取款 HKD 5,000，输入正确 PIN。</p>
     <pre><span class="comment"># PIN 验证 → 批准</span>
 curl -s -X POST "$API_URL/authorize" \
@@ -205,7 +231,7 @@ curl -s -X POST "$API_URL/authorize" \
   </div>
 
   <div class="scenario failure">
-    <h3>场景 4：未授权请求 — 安全防护</h3>
+    <h3>场景 6：未授权请求 — 安全防护</h3>
     <p>不带 API Key 的请求被 API Gateway 直接拒绝。</p>
     <pre><span class="comment"># 无 API Key → Forbidden</span>
 curl -s -X POST "$API_URL/authorize" \
@@ -318,6 +344,32 @@ const SCENARIOS = {
     merchant: 'HSBC ATM Causeway Bay',
     encrypted_pin_block: '4AA2132737F32585',
     pin_verification_value: '1064'
+  },
+  'dcvv2-ok': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'contactless',
+    pan: '5425230000004415',
+    amount: 88,
+    currency: 'HKD',
+    merchant: 'Octopus Top-up MTR',
+    expiry_date: '0127',
+    pan_sequence: '00',
+    atc: '0001',
+    service_code: '101',
+    dcvv2: '166'
+  },
+  'dcvv2-replay': {
+    transaction_id: 'demo-' + Date.now(),
+    transaction_type: 'contactless',
+    pan: '5425230000004415',
+    amount: 88,
+    currency: 'HKD',
+    merchant: 'Replayed Transaction',
+    expiry_date: '0127',
+    pan_sequence: '00',
+    atc: '0009',
+    service_code: '101',
+    dcvv2: '166'
   },
   'no-key': {
     transaction_type: 'ecommerce',

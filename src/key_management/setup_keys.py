@@ -78,6 +78,13 @@ def setup_issuer_keys():
         modes_of_use={"Encrypt": True, "Decrypt": True, "Wrap": True, "Unwrap": True},
     )
 
+    # 5. dCVV2 IMK - Issuer Master Key for Dynamic CVV2
+    keys["dcvv2_imk"] = create_key(
+        alias="poc-issuer-dcvv2-imk",
+        key_usage="TR31_E6_EMV_MKEY_OTHER",
+        modes_of_use={"DeriveKey": True},
+    )
+
     # 保存密钥 ARN 映射
     output_path = ".state/key_arns.json"
     with open(output_path, "w") as f:
