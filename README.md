@@ -89,6 +89,29 @@ curl -s -X POST "$API_URL/authorize" \
 - AWS CDK（IaC）
 - Region: ap-southeast-1
 
+## APC 可用区域
+
+| 区域 | Region Code |
+|------|-------------|
+| US East (N. Virginia) | us-east-1 |
+| US East (Ohio) | us-east-2 |
+| US West (Oregon) | us-west-2 |
+| Canada (Montreal) | ca-central-1 |
+| Europe (Ireland) | eu-west-1 |
+| Europe (Frankfurt) | eu-central-1 |
+| Europe (London) | eu-west-2 |
+| Europe (Paris) | eu-west-3 |
+| Asia Pacific (Singapore) | ap-southeast-1 |
+| Asia Pacific (Sydney) | ap-southeast-2 |
+| Asia Pacific (Tokyo) | ap-northeast-1 |
+| Asia Pacific (Osaka) | ap-northeast-3 |
+| Asia Pacific (Mumbai) | ap-south-1 |
+| Asia Pacific (Hyderabad) | ap-south-2 |
+| South America (São Paulo) | sa-east-1 |
+| Africa (Cape Town) | af-south-1 |
+
+> 注：暂不支持 ap-east-1（Hong Kong），本 POC 使用 ap-southeast-1（Singapore）。
+
 ## 安全措施
 
 - API Gateway 启用 API Key 认证 + 速率限制（10 req/s）

@@ -20,25 +20,36 @@ cd "$PROJECT_DIR"
 echo ""
 
 # Step 2: Schedule key deletion
-echo "🔐 Step 2/2: Scheduling key deletion (7-day waiting period)..."
+echo "🔐 Step 2/2: Scheduling key deletion (3-day waiting period)..."
+
+# Delete aliases first
 ALIASES=$(aws payment-cryptography list-aliases --region "$REGION" --profile "$PROFILE" \
-  --query 'Aliases[?starts_with(AliasName, `alias/poc-`)].{Alias:AliasName,ARN:KeyArn}' --output json)
+  --query 'Aliases[?starts_with(AliasName, `alias/poc-`)].AliasName' --output json)
 
 echo "$ALIASES" | python3 -c "
 import json, sys, subprocess
 aliases = json.load(sys.stdin)
-for a in aliases:
-    alias, arn = a['Alias'], a['ARN']
-    # Delete alias
+for alias in aliases:
     subprocess.run(['aws', 'payment-cryptography', 'delete-alias',
         '--alias-name', alias, '--region', '$REGION', '--profile', '$PROFILE'], capture_output=True)
-    # Schedule key deletion (minimum 3 days)
+    print(f'  🗑️  {alias} deleted')
+"
+
+# Delete all keys (both aliased and orphaned) with poc tag or all keys in the account
+KEYS=$(aws payment-cryptography list-keys --region "$REGION" --profile "$PROFILE" \
+  --query 'Keys[?KeyState!=`DELETE_PENDING` && KeyState!=`DELETE_COMPLETE`].KeyArn' --output json)
+
+echo "$KEYS" | python3 -c "
+import json, sys, subprocess
+arns = json.load(sys.stdin)
+for arn in arns:
     result = subprocess.run(['aws', 'payment-cryptography', 'delete-key',
         '--key-identifier', arn, '--delete-key-in-days', '3',
         '--region', '$REGION', '--profile', '$PROFILE'], capture_output=True, text=True)
     status = '✅' if result.returncode == 0 else '⚠️'
-    print(f'  {status} {alias} → deletion scheduled')
-print(f'\n  {len(aliases)} keys scheduled for deletion (3-day waiting period)')
+    key_id = arn.split('/')[-1]
+    print(f'  {status} {key_id} → deletion scheduled')
+print(f'\n  {len(arns)} keys scheduled for deletion (3-day waiting period)')
 "
 
 echo ""

@@ -100,7 +100,12 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
     <tr><td>CVK</td><td>poc-issuer-cvk</td><td>CVV/CVV2 生成与验证</td><td>TDES_2KEY</td></tr>
     <tr><td>PVK</td><td>poc-issuer-pvk</td><td>PIN 验证</td><td>TDES_2KEY</td></tr>
     <tr><td>IMK-AC</td><td>poc-issuer-imk-ac</td><td>EMV ARQC/ARPC 派生</td><td>TDES_2KEY</td></tr>
-    <tr><td>PEK</td><td>poc-issuer-pek</td><td>PIN Block 加密/解密</td><td>TDES_2KEY</td></tr>
+    <tr><td>PEK (Issuer)</td><td>poc-issuer-pek</td><td>发卡方 PIN Block 加密/解密</td><td>TDES_2KEY</td></tr>
+    <tr><td>dCVV2 IMK</td><td>poc-issuer-dcvv2-imk</td><td>dCVV2/CAVV 动态派生</td><td>TDES_2KEY</td></tr>
+    <tr><td>PEK (Acquirer)</td><td>poc-acquirer-pek</td><td>收单方 PIN Block 加密（模拟）</td><td>TDES_2KEY</td></tr>
+    <tr><td>MAC Key</td><td>poc-mac-key</td><td>交易消息 MAC 生成与验证</td><td>TDES_2KEY</td></tr>
+    <tr><td>DEK</td><td>poc-data-encrypt-key</td><td>敏感数据加密（PAN 等）</td><td>TDES_2KEY</td></tr>
+    <tr><td>KEK</td><td>poc-kek</td><td>TR-31 密钥导出/导入包裹</td><td>TDES_2KEY</td></tr>
   </table>
   <div class="note">所有密钥存储在 AWS Payment Cryptography 托管 HSM 中，已通过 PCI PIN 和 PCI P2PE 认证。支持 TR-31 Key Block 格式与现有 HSM 互通。</div>
 </section>

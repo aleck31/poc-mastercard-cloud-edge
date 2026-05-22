@@ -14,32 +14,33 @@ def create_key(alias, key_usage, key_algorithm="TDES_2KEY", modes_of_use=None):
     if modes_of_use is None:
         modes_of_use = {"Generate": True, "Verify": True}
 
+    # 先检查别名是否已存在
     try:
-        resp = client.create_key(
-            Exportable=True,
-            KeyAttributes={
-                "KeyAlgorithm": key_algorithm,
-                "KeyUsage": key_usage,
-                "KeyClass": "SYMMETRIC_KEY",
-                "KeyModesOfUse": modes_of_use,
-            },
-            Tags=[{"Key": "Project", "Value": "poc-mastercard-cloud-edge"}],
-        )
-        key = resp["Key"]
-        print(f"✅ Created {alias}")
-        print(f"   ARN: {key['KeyArn']}")
-        print(f"   KCV: {key['KeyCheckValue']}")
-        print()
-
-        # 创建别名方便引用
-        client.create_alias(AliasName=f"alias/{alias}", KeyArn=key["KeyArn"])
-        return key["KeyArn"]
-    except client.exceptions.ConflictException:
-        # 别名已存在，获取现有密钥
         alias_resp = client.get_alias(AliasName=f"alias/{alias}")
         print(f"⏭️  {alias} already exists: {alias_resp['Alias']['KeyArn']}")
         print()
         return alias_resp["Alias"]["KeyArn"]
+    except client.exceptions.ResourceNotFoundException:
+        pass
+
+    resp = client.create_key(
+        Exportable=True,
+        KeyAttributes={
+            "KeyAlgorithm": key_algorithm,
+            "KeyUsage": key_usage,
+            "KeyClass": "SYMMETRIC_KEY",
+            "KeyModesOfUse": modes_of_use,
+        },
+        Tags=[{"Key": "Project", "Value": "poc-mastercard-cloud-edge"}],
+    )
+    key = resp["Key"]
+    print(f"✅ Created {alias}")
+    print(f"   ARN: {key['KeyArn']}")
+    print(f"   KCV: {key['KeyCheckValue']}")
+    print()
+
+    client.create_alias(AliasName=f"alias/{alias}", KeyArn=key["KeyArn"])
+    return key["KeyArn"]
 
 
 def setup_issuer_keys():
