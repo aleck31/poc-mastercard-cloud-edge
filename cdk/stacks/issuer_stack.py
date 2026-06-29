@@ -30,33 +30,28 @@ class IssuerStack(Stack):
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
 
-        # 授予 Payment Cryptography 权限
-        # Control Plane: 获取密钥别名和元数据
+        # 授予 AWS Payment Cryptography 权限
+        # 注：IAM action prefix 统一为 payment-cryptography（含 Control Plane 和 Data Plane）
         issuer_fn.add_to_role_policy(iam.PolicyStatement(
             actions=[
                 "payment-cryptography:GetAlias",
                 "payment-cryptography:GetKey",
                 "payment-cryptography:ListAliases",
                 "payment-cryptography:ExportKey",
+                "payment-cryptography:GenerateCardValidationData",
+                "payment-cryptography:VerifyCardValidationData",
+                "payment-cryptography:VerifyPinData",
+                "payment-cryptography:VerifyAuthRequestCryptogram",
+                "payment-cryptography:TranslatePinData",
+                "payment-cryptography:GenerateMac",
+                "payment-cryptography:VerifyMac",
+                "payment-cryptography:EncryptData",
+                "payment-cryptography:DecryptData",
             ],
             resources=[
                 f"arn:aws:payment-cryptography:ap-southeast-1:{self.account}:alias/*",
                 f"arn:aws:payment-cryptography:ap-southeast-1:{self.account}:key/*",
             ],
-        ))
-        # Data Plane: 密码学验证操作（Data Plane 不支持资源级限制，必须用 *）
-        issuer_fn.add_to_role_policy(iam.PolicyStatement(
-            actions=[
-                "payment-cryptography-data:VerifyCardValidationData",
-                "payment-cryptography-data:VerifyPinData",
-                "payment-cryptography-data:VerifyAuthRequestCryptogram",
-                "payment-cryptography-data:TranslatePinData",
-                "payment-cryptography-data:GenerateMac",
-                "payment-cryptography-data:VerifyMac",
-                "payment-cryptography-data:EncryptData",
-                "payment-cryptography-data:DecryptData",
-            ],
-            resources=["*"],
         ))
 
         # API Gateway - 模拟 Cloud Edge 入口
