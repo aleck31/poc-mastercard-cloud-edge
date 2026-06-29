@@ -65,6 +65,65 @@ def generate_test_card_data():
     print(f"   Encrypted PIN Block: {pin_data['encrypted_pin_block']}")
     print(f"   PIN Verification Value: {pin_data['pin_verification_value']}")
 
+    # dCVV2
+    key_arn = get_key_arn("poc-issuer-dcvv2-imk")
+    dcvv2_resp = data_client.generate_card_validation_data(
+        KeyIdentifier=key_arn,
+        PrimaryAccountNumber=pan,
+        GenerationAttributes={
+            "DynamicCardVerificationValue": {
+                "CardExpiryDate": expiry,
+                "PanSequenceNumber": "00",
+                "ApplicationTransactionCounter": "0001",
+                "ServiceCode": "101",
+            }
+        },
+    )
+    dcvv2 = dcvv2_resp["ValidationData"]
+    print(f"   dCVV2 (ATC=0001): {dcvv2}")
+
+    # CAVV
+    cavv_resp = data_client.generate_card_validation_data(
+        KeyIdentifier=key_arn,
+        PrimaryAccountNumber=pan,
+        GenerationAttributes={
+            "CardHolderVerificationValue": {
+                "ApplicationTransactionCounter": "0001",
+                "PanSequenceNumber": "00",
+                "UnpredictableNumber": "1234",
+            }
+        },
+    )
+    cavv = cavv_resp["ValidationData"]
+    print(f"   CAVV: {cavv}")
+
+    # PIN (用收单方密钥加密，用于 PIN Translate 场景)
+    acquirer_pek_arn = get_key_arn("poc-acquirer-pek")
+    pvk_arn = get_key_arn("poc-issuer-pvk")
+    acquirer_pin_resp = data_client.generate_pin_data(
+        GenerationKeyIdentifier=pvk_arn,
+        EncryptionKeyIdentifier=acquirer_pek_arn,
+        PrimaryAccountNumber=pan,
+        PinBlockFormat="ISO_FORMAT_0",
+        GenerationAttributes={"VisaPin": {"PinVerificationKeyIndex": 1}},
+        PinDataLength=4,
+    )
+    acquirer_pin_block = acquirer_pin_resp["EncryptedPinBlock"]
+    acquirer_pvv = acquirer_pin_resp["PinData"]["VerificationValue"]
+    print(f"   Acquirer PIN Block: {acquirer_pin_block}")
+    print(f"   Acquirer PVV: {acquirer_pvv}")
+
+    # MAC (用于 PIN Translate 场景的消息认证)
+    mac_key_arn = get_key_arn("poc-mac-key")
+    msg_data = "0200542523000044150000000050001234567890"
+    mac_resp = data_client.generate_mac(
+        KeyIdentifier=mac_key_arn,
+        MessageData=msg_data,
+        GenerationAttributes={"Algorithm": "ISO9797_ALGORITHM1"},
+    )
+    mac_value = mac_resp["Mac"]
+    print(f"   MAC: {mac_value}")
+
     # 保存测试数据
     test_card = {
         "pan": pan,
@@ -72,6 +131,12 @@ def generate_test_card_data():
         "cvv2": cvv2,
         "encrypted_pin_block": pin_data["encrypted_pin_block"],
         "pin_verification_value": pin_data["pin_verification_value"],
+        "dcvv2": dcvv2,
+        "cavv": cavv,
+        "acquirer_pin_block": acquirer_pin_block,
+        "acquirer_pvv": acquirer_pvv,
+        "mac_message_data": msg_data,
+        "mac": mac_value,
     }
 
     output_path = ".state/test_card.json"

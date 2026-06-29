@@ -258,7 +258,7 @@ footer { text-align: center; padding: 2rem; color: #666; font-size: 0.85rem; }
   "message_data": "0200542523000044150000000099991234567890",  ← 金额被篡改
   "mac": "C8288190"  ← 原始 MAC（与篡改后的消息不匹配）
 }</pre>
-    <p>预期结果：<span class="result result-declined">❌ 96 - MAC verification failed</span></p>
+    <p>预期结果：<span class="result result-declined">❌ 05 - Do not honour (MAC failed)</span></p>
     <button class="btn-run" id="btn-mac-tamper" onclick="runScenario('mac-tamper')">▶ 执行请求</button>
     <div class="output" id="output-mac-tamper"></div>
   </div>
@@ -536,6 +536,18 @@ async function runScenario(scenarioId) {
     return;
   }
 
+  // 用 TEST_CARD 动态值覆盖 hardcoded 值
+  const TC = (typeof TEST_CARD !== 'undefined') ? TEST_CARD : {};
+  const overrides = {
+    'cvv-ok': { cvv2: TC.cvv2 },
+    'dcvv2-ok': { dcvv2: TC.dcvv2 },
+    'dcvv2-replay': { dcvv2: TC.dcvv2 },
+    'pin-translate': { encrypted_pin_block: TC.acquirer_pin_block, pin_verification_value: TC.acquirer_pvv, message_data: TC.mac_message_data, mac: TC.mac },
+    'mac-tamper': { mac: TC.mac },
+    '3ds': { cavv: TC.cavv },
+  };
+  const scenario = Object.assign({}, SCENARIOS[scenarioId], overrides[scenarioId] || {});
+
   btn.disabled = true;
   btn.textContent = '⏳ 请求中...';
   output.style.display = 'block';
@@ -550,7 +562,7 @@ async function runScenario(scenarioId) {
     const resp = await fetch(CONFIG.apiUrl + 'authorize', {
       method: 'POST',
       headers,
-      body: JSON.stringify(SCENARIOS[scenarioId])
+      body: JSON.stringify(scenario)
     });
     const elapsed = Math.round(performance.now() - startTime);
     const data = await resp.json();

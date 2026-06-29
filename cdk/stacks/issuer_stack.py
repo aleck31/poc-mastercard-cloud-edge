@@ -60,16 +60,25 @@ class IssuerStack(Stack):
             rest_api_name="Mastercard Cloud Edge (Simulated)",
             description="Simulated Mastercard Cloud Edge endpoint for Issuer authorization",
             deploy_options=apigw.StageOptions(stage_name="v1"),
-        )
-
-        # POST /authorize - 授权请求（需要 API Key）
-        authorize = api.root.add_resource("authorize",
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
                 allow_methods=["POST", "OPTIONS"],
                 allow_headers=["Content-Type", "x-api-key"],
             ),
         )
+
+        # 为 4XX/5XX Gateway Response 添加 CORS headers
+        api.add_gateway_response("GatewayResponse4XX",
+            type=apigw.ResponseType.DEFAULT_4_XX,
+            response_headers={"Access-Control-Allow-Origin": "'*'"},
+        )
+        api.add_gateway_response("GatewayResponse5XX",
+            type=apigw.ResponseType.DEFAULT_5_XX,
+            response_headers={"Access-Control-Allow-Origin": "'*'"},
+        )
+
+        # POST /authorize - 授权请求（需要 API Key）
+        authorize = api.root.add_resource("authorize")
         authorize.add_method("POST", apigw.LambdaIntegration(issuer_fn), api_key_required=True)
 
         # API Key + Usage Plan

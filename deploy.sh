@@ -49,16 +49,6 @@ AWS_PROFILE=${PROFILE}
 EOF
 echo "📝 .env updated"
 
-# 生成前端配置
-cat > docs/config.js <<JSEOF
-// Auto-generated from deploy.sh - do not commit
-const CONFIG = {
-  apiUrl: '${API_URL}',
-  apiKey: '${API_KEY}'
-};
-JSEOF
-echo "📝 docs/config.js updated"
-
 # Step 3: 初始化密钥
 echo ""
 echo "🔐 Step 3/4: Setting up payment keys..."
@@ -71,6 +61,18 @@ echo "🃏 Step 4/4: Generating test card data..."
 AWS_PROFILE="$PROFILE" uv run python3 src/key_management/generate_test_data.py
 echo ""
 
+# 生成前端配置（含测试数据）
+cat > docs/config.js <<JSEOF
+// Auto-generated from deploy.sh - do not commit
+const CONFIG = {
+  apiUrl: '${API_URL}',
+  apiKey: '${API_KEY}'
+};
+const TEST_CARD = $(cat .state/test_card.json);
+JSEOF
+echo "📝 docs/config.js updated"
+
+echo ""
 echo "============================================================"
 echo "✅ Deployment complete!"
 echo ""

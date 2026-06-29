@@ -1,5 +1,5 @@
 """
-演示脚本 - 模拟三种交易场景
+演示脚本 - 模拟交易场景
 可本地直接运行（调用 Lambda handler）或通过 API Gateway 调用
 """
 import json
@@ -9,6 +9,19 @@ import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "issuer_host"))
 from handler import authorize_transaction  # noqa: E402
+
+# 加载测试卡数据
+TEST_CARD_PATH = os.path.join(os.path.dirname(__file__), "..", ".state", "test_card.json")
+if os.path.exists(TEST_CARD_PATH):
+    with open(TEST_CARD_PATH) as f:
+        TEST_CARD = json.load(f)
+else:
+    TEST_CARD = {
+        "pan": "5425230000004415", "expiry_date": "0127",
+        "cvv2": "000", "encrypted_pin_block": "", "pin_verification_value": "",
+        "dcvv2": "000", "cavv": "000",
+    }
+    print("⚠️  .state/test_card.json not found, using placeholder values")
 
 
 def print_result(scenario, result):
@@ -40,12 +53,12 @@ def scenario_ecommerce_transaction():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "ecommerce",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 299,
         "currency": "HKD",
         "merchant": "HKTVmall",
-        "expiry_date": "0127",
-        "cvv2": "683",
+        "expiry_date": TEST_CARD["expiry_date"],
+        "cvv2": TEST_CARD["cvv2"],
     }
 
 
@@ -68,15 +81,15 @@ def scenario_contactless_dcvv2():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "contactless",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 88,
         "currency": "HKD",
         "merchant": "Octopus Top-up MTR",
-        "expiry_date": "0127",
+        "expiry_date": TEST_CARD["expiry_date"],
         "pan_sequence": "00",
         "atc": "0001",
         "service_code": "101",
-        "dcvv2": "166",
+        "dcvv2": TEST_CARD["dcvv2"],
     }
 
 
@@ -85,15 +98,15 @@ def scenario_contactless_replay_attack():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "contactless",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 88,
         "currency": "HKD",
         "merchant": "Replayed Transaction",
-        "expiry_date": "0127",
+        "expiry_date": TEST_CARD["expiry_date"],
         "pan_sequence": "00",
         "atc": "0009",  # 错误的 ATC，模拟重放攻击
         "service_code": "101",
-        "dcvv2": "166",
+        "dcvv2": TEST_CARD["dcvv2"],
     }
 
 
@@ -102,12 +115,12 @@ def scenario_atm_withdrawal():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "atm",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 5000,
         "currency": "HKD",
         "merchant": "HSBC ATM Causeway Bay",
-        "encrypted_pin_block": "4AA2132737F32585",
-        "pin_verification_value": "1064",
+        "encrypted_pin_block": TEST_CARD["encrypted_pin_block"],
+        "pin_verification_value": TEST_CARD["pin_verification_value"],
     }
 
 
@@ -116,15 +129,15 @@ def scenario_pin_translate():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "pin_translate",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 2000,
         "currency": "HKD",
         "merchant": "POS Terminal - Park N Shop",
-        "encrypted_pin_block": "3E15A2191F11D647",  # 收单方密钥加密
-        "pin_verification_value": "7914",
+        "encrypted_pin_block": TEST_CARD["acquirer_pin_block"],
+        "pin_verification_value": TEST_CARD["acquirer_pvv"],
         "outgoing_format": "ISO_FORMAT_0",
-        "message_data": "0200542523000044150000000050001234567890",
-        "mac": "C8288190",
+        "message_data": TEST_CARD["mac_message_data"],
+        "mac": TEST_CARD["mac"],
     }
 
 
@@ -133,12 +146,12 @@ def scenario_mac_tampered():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "mac_verify",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 9999,
         "currency": "HKD",
         "merchant": "Tampered Message",
         "message_data": "0200542523000044150000000099991234567890",  # 金额被篡改
-        "mac": "C8288190",  # 原始 MAC
+        "mac": TEST_CARD["mac"],  # 原始 MAC（与篡改后的消息不匹配）
     }
 
 
@@ -172,14 +185,14 @@ def scenario_3ds_cavv():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "3ds",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 1500,
         "currency": "HKD",
         "merchant": "Online Store (3DS)",
         "pan_sequence": "00",
         "atc": "0001",
         "unpredictable_number": "1234",
-        "cavv": "215",
+        "cavv": TEST_CARD["cavv"],
     }
 
 
@@ -188,11 +201,11 @@ def scenario_card_personalization():
     return {
         "transaction_id": str(uuid.uuid4()),
         "transaction_type": "card_personalization",
-        "pan": "5425230000004415",
+        "pan": TEST_CARD["pan"],
         "amount": 0,
         "currency": "",
         "merchant": "Card Personalization Bureau",
-        "expiry_date": "0127",
+        "expiry_date": TEST_CARD["expiry_date"],
         "pan_sequence": "00",
     }
 
